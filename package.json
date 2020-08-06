@@ -1,0 +1,26 @@
+{
+  "name": "fantom-defi-fmint",
+  "version": "1.0.0",
+  "description": "Fantom DeFi implementation of fMint module.",
+  "main": "truffle-config.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fantom-foundation/Fantom-FMint.git"
+  },
+  "keywords": [
+    "Fantom",
+    "DeFi",
+    "fMint",
+    "Solidity"
+  ],
+  "author": "Fantom Foundation",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Fantom-foundation/Fantom-FMint/issues"
+  },
+  "homepage": "https://github.com/Fantom-foundation/Fantom-FMint#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^2.5.1"
+  }
+}
