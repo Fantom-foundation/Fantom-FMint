@@ -11,3 +11,6 @@ to conform with the EVM implemented in the Opera block chain.
 Consult the [Truffle](https://www.trufflesuite.com)
 documents to find out how to build and deploy
 the smart contract implemented here.
+
+In general, all you should need to do is to call `truffle build`
+to get the deployable contract code and ABI inside `build/` folder.

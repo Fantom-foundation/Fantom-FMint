@@ -255,7 +255,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         } else {
             // on native tokens, the designated amount deposited must match
             // the native tokens attached to this transaction
-            require(msg.value == _amount, "invalid native tokens amount received");
+            require(msg.value == _amount, "invalid amount received");
         }
 
         // update the collateral value storage
@@ -299,7 +299,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
             _collateralByTokens[_token][msg.sender].sub(_amount, "withdraw exceeds balance");
 
         _collateralByUsers[msg.sender][_token] =
-            _collateralByUsers[msg.sender][_token].sub(_amount, "withdraw amount exceeds balance");
+            _collateralByUsers[msg.sender][_token].sub(_amount, "withdraw exceeds balance");
 
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts
@@ -314,7 +314,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
 
         // does the new state obey the enforced minimal collateral to debt ratio?
         // if the check fails, the collateral withdraw is rejected
-        require(cCollateralValue >= minCollateralValue, "collateral value below allowed ratio");
+        require(cCollateralValue >= minCollateralValue, "value below allowed ratio");
 
         // the new collateral value is ok; update the stored collateral and debt values
         _collateralValue[msg.sender] = cCollateralValue;

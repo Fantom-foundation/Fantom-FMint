@@ -92,12 +92,12 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         require(_amount > 0, "non-zero amount expected");
 
         // native tokens can not be minted
-        require(_token != fMintNativeToken(), "native token is not mintable");
+        require(_token != fMintNativeToken(), "native tokens not mintable");
 
         // make sure there is some collateral established by this user
         // we still need to re-calculate the current value though, since the value
         // could have changed due to exchange rate fluctuation
-        require(_collateralValue[msg.sender] > 0, "collateral must be built");
+        require(_collateralValue[msg.sender] > 0, "missing collateral");
 
         // what is the value of the borrowed token?
         uint256 tokenValue = IPriceOracle(fMintPriceOracle()).getPrice(_token);
@@ -159,7 +159,7 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
 
         // native tokens can not be minted through this contract
         // so there can not be any debt to be repaid on them
-        require(_token != fMintNativeToken(), "native token not mintable");
+        require(_token != fMintNativeToken(), "native tokens not mintable");
 
         // subtract the returned amount from the user debt
         _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].sub(_amount, "insufficient debt outstanding");
