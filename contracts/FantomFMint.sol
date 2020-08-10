@@ -73,7 +73,7 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
     function fMintFeeDigitsCorrection() public pure returns (uint256) {
-        return 25;
+        return 10000;
     }
 
     // -------------------------------------------------------------
