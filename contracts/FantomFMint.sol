@@ -11,9 +11,12 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./FantomCollateral.sol";
 import "./IPriceOracle.sol";
 
-// FantomFMint implements the contract for handling stable coin
-// and synthetic tokens liquidity pool and providing core DeFi
-// function for minting tokens for the deposited collateral.
+// FantomFMint implements the contract of core DeFi function
+// for minting tokens againts a deposited collateral. The collateral
+// management is linked from the Fantom Collateral implementation.
+// Minting is burdened with a minting fee defined as the amount
+// of percent of the minted tokens value in fUSD. Burning is free
+// of any fee.
 contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
     // define used libs
     using SafeMath for uint256;
