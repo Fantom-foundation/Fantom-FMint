@@ -9,10 +9,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./FantomCollateral.sol";
-import "./IPriceOracle.sol";
+import "./interface/IPriceOracle.sol";
+import "./interface/IFantomDeFiTokenRegistry.sol";
 
 // FantomFMint implements the contract of core DeFi function
-// for minting tokens againts a deposited collateral. The collateral
+// for minting tokens against a deposited collateral. The collateral
 // management is linked from the Fantom Collateral implementation.
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
@@ -28,56 +29,42 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
     uint256 public feePool;
 
     // Minted is emitted on confirmed token minting against user's collateral value.
-    event Minted(address indexed token, address indexed user, uint256 amount, uint256 timestamp);
+    event Minted(address indexed token, address indexed user, uint256 amount);
 
     // Repaid is emitted on confirmed token repay of user's debt of the token.
-    event Repaid(address indexed token, address indexed user, uint256 amount, uint256 timestamp);
+    event Repaid(address indexed token, address indexed user, uint256 amount);
 
     // -------------------------------------------------------------
     // Price and value calculation related utility functions
     // -------------------------------------------------------------
 
-    // fMintPriceOracle returns the address of the price
+    // fMintPriceOracle represents the address of the price
     // oracle aggregate used by the collateral to get
     // the price of a specific token.
-    function fMintPriceOracle() public pure returns (address) {
-        return address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-    }
+    address public const fMintPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
-    // fMintNativeToken returns the identification of native
-    // tokens as recognized by the DeFi module.
-    function fMintNativeToken() public pure returns (address) {
-        return address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-    }
+    // fTokenRegistry represents the address of the Fantom token
+    // registry contract responsible for providing DeFi tokens information.
+    address public const fTokenRegistry = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
-    // fMintFeeToken returns the identification of the token
+    // fMintFeeToken represents the identification of the token
     // we use for fee by the fMint DeFi module (fUSD).
-    function fMintFeeToken() public pure returns (address) {
-        return address(0xf15Ff135dc437a2FD260476f31B3547b84F5dD0b);
-    }
+    address public const fMintFeeToken = address(0xf15Ff135dc437a2FD260476f31B3547b84F5dD0b);
 
-    // fMintPriceDigitsCorrection returns the correction required
+    // fMintPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
     // through an 8 digits USD (ChainLink compatible) price oracle
     // on any minting price value calculation.
-    function fMintPriceDigitsCorrection() public pure returns (uint256) {
-        // 10 ^ (srcDigits - (dstDigits - priceDigits))
-        // return 10 ** (18 - (18 - 8));
-        return 100000000;
-    }
+    uint256 public const fMintPriceDigitsCorrection = 100000000;
 
-    // fMintFee returns the current value of the minting fee used
+    // fMintFee represents the current value of the minting fee used
     // for minter operations.
-    // The value is returnd in 4 decimals; 25 = 0.0025 = 0.25%
-    function fMintFee() public pure returns (uint256) {
-        return 25;
-    }
+    // The value is kept in 4 decimals; 25 = 0.0025 = 0.25%
+    uint256 public const fMintFee = 25;
 
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
-    function fMintFeeDigitsCorrection() public pure returns (uint256) {
-        return 10000;
-    }
+    uint256 public const fMintFeeDigitsCorrection = 10000;
 
     // -------------------------------------------------------------
     // Minter functions below
@@ -100,21 +87,21 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         require(_collateralValue[msg.sender] > 0, "missing collateral");
 
         // what is the value of the borrowed token?
-        uint256 tokenValue = IPriceOracle(fMintPriceOracle()).getPrice(_token);
+        uint256 tokenValue = IPriceOracle(fMintPriceOracle).getPrice(_token);
         require(tokenValue > 0, "token has no value");
 
         // calculate the minting fee and store the value we gained by this operation
         uint256 fee = _amount
                         .mul(tokenValue)
-                        .mul(fMintFee())
-                        .div(fMintFeeDigitsCorrection())
-                        .div(fMintPriceDigitsCorrection());
+                        .mul(fMintFee)
+                        .div(fMintFeeDigitsCorrection)
+                        .div(fMintPriceDigitsCorrection);
         feePool = feePool.add(fee);
 
         // register the debt of the fee in the fee token
-        _debtByTokens[fMintFeeToken()][msg.sender] = _debtByTokens[fMintFeeToken()][msg.sender].add(fee);
-        _debtByUsers[msg.sender][fMintFeeToken()] = _debtByUsers[msg.sender][fMintFeeToken()].add(fee);
-        enrolDebt(fMintFeeToken(), msg.sender);
+        _debtByTokens[fMintFeeToken][msg.sender] = _debtByTokens[fMintFeeToken][msg.sender].add(fee);
+        _debtByUsers[msg.sender][fMintFeeToken] = _debtByUsers[msg.sender][fMintFeeToken].add(fee);
+        enrolDebt(fMintFeeToken, msg.sender);
 
         // register the debt of minted token
         _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].add(_amount);
@@ -128,7 +115,7 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
-                                        .mul(collateralLowestDebtRatio4dec())
+                                        .mul(collateralLowestDebtRatio4dec)
                                         .div(collateralRatioDecimalsCorrection());
 
         // does the new state obey the enforced minimal collateral to debt ratio?
