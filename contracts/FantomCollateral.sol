@@ -7,12 +7,13 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./IPriceOracle.sol";
+import "./interface/IPriceOracle.sol";
+import "./utils/FMintErrorCodes.sol";
 
 // FantomCollateral implements a collateral pool
 // for the related Fantom DeFi contract. The collateral is used
-// to manage tokens referenced on the balanced Defi functions.
-contract FantomCollateral is Ownable, ReentrancyGuard {
+// to manage tokens referenced on the balanced DeFi functions.
+contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
@@ -58,58 +59,42 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
     mapping(address => uint256) public _debtValue;
 
     // -------------------------------------------------------------
-    // Emited events defition
+    // Emitted events definition
     // -------------------------------------------------------------
 
     // Deposited is emitted on token received to deposit
     // increasing user's collateral value.
-    event Deposited(address indexed token, address indexed user, uint256 amount, uint256 timestamp);
+    event Deposited(address indexed token, address indexed user, uint256 amount);
 
     // Withdrawn is emitted on confirmed token withdraw
     // from the deposit decreasing user's collateral value.
-    event Withdrawn(address indexed token, address indexed user, uint256 amount, uint256 timestamp);
+    event Withdrawn(address indexed token, address indexed user, uint256 amount);
 
     // -------------------------------------------------------------
     // Price and value calculation related utility functions
     // -------------------------------------------------------------
 
-    // collateralPriceOracle returns the address of the price
+    // collateralPriceOracle represents the address of the price
     // oracle aggregate used by the collateral to get
     // the price of a specific token.
-    function collateralPriceOracle() public pure returns (address) {
-        return address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-    }
+    address public const collateralPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
-    // collateralPriceDigitsCorrection returns the correction required
+    // collateralPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
     // through an 8 digits USD (ChainLink compatible) price oracle
     // on any collateral price value calculation.
-    function collateralPriceDigitsCorrection() public pure returns (uint256) {
-        // 10 ^ (srcDigits - (dstDigits - priceDigits))
-        // return 10 ** (18 - (18 - 8));
-        return 100000000;
-    }
-
-    // collateralNativeToken returns the identification of native
-    // tokens as recognized by the DeFi module.
-    function collateralNativeToken() public pure returns (address) {
-        return address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-    }
+    uint256 public const collateralPriceDigitsCorrection = 100000000;
 
     // collateralLowestDebtRatio4dec represents the lowest ratio between
     // collateral value and debt value allowed for the user.
     // User can not withdraw his collateral if the active ratio would
     // drop below this value.
     // The value is returned in 4 decimals, e.g. value 30000 = 3.0
-    function collateralLowestDebtRatio4dec() public pure returns (uint256) {
-        return 30000;
-    }
+    uint256 public const collateralLowestDebtRatio4dec = 30000;
 
     // collateralRatioDecimalsCorrection represents the value to be used
     // to adjust result decimals after applying ratio to a value calculation.
-    function collateralRatioDecimalsCorrection() public pure returns (uint256) {
-        return 10000;
-    }
+    uint256 public const collateralRatioDecimalsCorrection = 10000;
 
     // -------------------------------------------------------------
     // Collateral related utility functions
@@ -136,7 +121,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         }
     }
 
-    // collateralListCount returns the number of tokens enroled
+    // collateralListCount returns the number of tokens enrolled
     // on the collateral list for the given user.
     function collateralListCount(address _owner) public view returns (uint256) {
         // any collateral at all?
@@ -155,7 +140,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         // loop all registered collateral tokens of the user
         for (uint i = 0; i < _collateralList[_user].length; i++) {
             // get the current exchange rate of the specific token
-            uint256 rate = IPriceOracle(collateralPriceOracle())
+            uint256 rate = IPriceOracle(collateralPriceOracle)
                                 .getPrice(_collateralList[_user][i]);
 
             // add the asset token value to the total;
@@ -165,7 +150,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
             cValue = cValue.add(
                 _collateralByTokens[_collateralList[_user][i]][_user]
                 .mul(rate)
-                .div(collateralPriceDigitsCorrection())
+                .div(collateralPriceDigitsCorrection)
             );
         }
 
@@ -197,7 +182,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         }
     }
 
-    // debtListCount returns the number of tokens enroled
+    // debtListCount returns the number of tokens enrolled
     // on the debt list for the given user.
     function debtListCount(address _owner) public view returns (uint256) {
         // any debt at all for the user?
@@ -216,7 +201,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         // loop all registered debt tokens of the user
         for (uint i = 0; i < _debtList[_user].length; i++) {
             // get the current exchange rate of the specific token
-            uint256 rate = IPriceOracle(collateralPriceOracle())
+            uint256 rate = IPriceOracle(collateralPriceOracle)
                                 .getPrice(_debtList[_user][i]);
 
             // add the asset token value to the total;
@@ -226,7 +211,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
             cValue = cValue.add(
                 _debtByTokens[_debtList[_user][i]][_user]
                 .mul(rate)
-                .div(collateralPriceDigitsCorrection())
+                .div(collateralPriceDigitsCorrection)
             );
         }
 
@@ -237,26 +222,29 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
     // Collateral management functions below
     // -------------------------------------------------------------
 
-    // deposit receives assets (any token including native FTM)
-    // to build up the collateral value.
+    // deposit receives assets to build up the collateral value.
     // The collateral can be used later to mint tokens inside fMint module.
     // The call does not subtract any fee. No interest is granted on deposit.
-    function deposit(address _token, uint256 _amount) external payable nonReentrant
+    function deposit(address _token, uint256 _amount) public nonReentrant returns (uint256)
     {
         // make sure a non-zero value is being deposited
-        require(_amount > 0, "non-zero amount required");
-
-        // if this is a non-native token, verify that the user
-        // has enough balance of the ERC20 token to send
-        // the specified amount to the deposit
-        if (_token != collateralNativeToken()) {
-            require(msg.value == 0, "native tokens not expected");
-            require(_amount <= ERC20(_token).balanceOf(msg.sender), "not enough balance");
-        } else {
-            // on native tokens, the designated amount deposited must match
-            // the native tokens attached to this transaction
-            require(msg.value == _amount, "invalid amount received");
+        if (_amount == 0) {
+            return ERR_INVALID_ZERO_VALUE;
         }
+
+        // make sure caller has enough balance to cover the deposit
+        if (_amount > ERC20(_token).balanceOf(msg.sender)) {
+            return ERR_LOW_BALANCE;
+        }
+
+        // make sure we are allowed to transfer funds from the caller
+        // to the fMint deposit pool
+        if (_amount > ERC20(_token).allowance(msg.sender, address(this))) {
+            return ERR_LOW_ALLOWANCE;
+        }
+
+        // transfer ERC20 tokens from user to the pool
+        ERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
 
         // update the collateral value storage
         _collateralByTokens[_token][msg.sender] = _collateralByTokens[_token][msg.sender].add(_amount);
@@ -270,36 +258,31 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         // across all assets kept
         _collateralValue[msg.sender] = collateralValue(msg.sender);
 
-        // native tokens were already received along with the trx
-        // ERC20 tokens must be transferred from user to the local pool
-        // NOTE: allowance must be granted by the owner of the token
-        // to the contract first to enable this transfer.
-        if (_token != collateralNativeToken()) {
-            ERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-        }
-
         // emit the event signaling a successful deposit
-        emit Deposited(_token, msg.sender, _amount, block.timestamp);
+        emit Deposited(_token, msg.sender, _amount);
+
+        // deposit successful
+        return ERR_NO_ERROR;
     }
 
-    // withdraw subtracts any deposited collateral token, including native FTM,
-    // that has a value, from the contract.
+    // withdraw subtracts any deposited collateral token from the contract.
     // The remaining collateral value is compared to the minimal required
     // collateral to debt ratio and the transfer is rejected
     // if the ratio is lower than the enforced one.
-    function withdraw(address _token, uint256 _amount) external nonReentrant {
-        // make sure the requested withdraw amount makes sense
-        require(_amount > 0, "non-zero amount expected");
+    function withdraw(address _token, uint256 _amount) public nonReentrant returns (uint256) {
+        // make sure a non-zero value is being withdrawn
+        if (_amount == 0) {
+            return ERR_INVALID_ZERO_VALUE;
+        }
+
+        // make sure the withdraw does not exceed collateral balance
+        if (_amount > _collateralByTokens[_token][msg.sender]) {
+            return ERR_LOW_BALANCE;
+        }
 
         // update collateral value of the token to a new value
-        // we don't need to check the current balance against
-        // the requested withdrawal; the SafeMath does that validation
-        // for us inside the <sub> call.
-        _collateralByTokens[_token][msg.sender] =
-            _collateralByTokens[_token][msg.sender].sub(_amount, "withdraw exceeds balance");
-
-        _collateralByUsers[msg.sender][_token] =
-            _collateralByUsers[msg.sender][_token].sub(_amount, "withdraw exceeds balance");
+        _collateralByTokens[_token][msg.sender] = _collateralByTokens[_token][msg.sender].sub(_amount);
+        _collateralByUsers[msg.sender][_token] = _collateralByUsers[msg.sender][_token].sub(_amount);
 
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts
@@ -309,30 +292,26 @@ contract FantomCollateral is Ownable, ReentrancyGuard {
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
-                                        .mul(collateralLowestDebtRatio4dec())
-                                        .div(collateralRatioDecimalsCorrection());
+                                        .mul(collateralLowestDebtRatio4dec)
+                                        .div(collateralRatioDecimalsCorrection);
 
         // does the new state obey the enforced minimal collateral to debt ratio?
         // if the check fails, the collateral withdraw is rejected
-        require(cCollateralValue >= minCollateralValue, "value below allowed ratio");
+        if (cCollateralValue < minCollateralValue) {
+            return ERR_LOW_COLLATERAL_RATIO;
+        }
 
         // the new collateral value is ok; update the stored collateral and debt values
         _collateralValue[msg.sender] = cCollateralValue;
         _debtValue[msg.sender] = cDebtValue;
 
-        // is this a native token or ERC20 withdrawal?
-        if (_token != collateralNativeToken()) {
-            // transfer the requested amount of ERC20 tokens from the local pool to the caller
-            ERC20(_token).safeTransfer(msg.sender, _amount);
-        } else {
-            // native tokens are being withdrawn; transfer the requested amount
-            // we transfer control to the recipient here, so we have to mittigate re-entrancy
-            // solhint-disable-next-line avoid-call-value
-            (bool success,) = msg.sender.call.value(_amount)("");
-            require(success, "unable to send withdraw");
-        }
+        // transfer the requested amount of ERC20 tokens from the local pool to the caller
+        ERC20(_token).safeTransfer(msg.sender, _amount);
 
         // signal the successful asset withdrawal
-        emit Withdrawn(_token, msg.sender, _amount, block.timestamp);
+        emit Withdrawn(_token, msg.sender, _amount);
+
+        // withdraw successful
+        return ERR_NO_ERROR;
     }
 }

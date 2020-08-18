@@ -16,4 +16,7 @@ contract FMintErrorCodes {
 
 	// Error Code: ERC20 allowance for the fMint too low.
 	uint256 public const ERR_LOW_ALLOWANCE = 0x1003;
+
+	// Error Code: ERC20 collateral is below enforced limit.
+	uint256 public const ERR_LOW_COLLATERAL_RATIO = 0x2001;
 }
