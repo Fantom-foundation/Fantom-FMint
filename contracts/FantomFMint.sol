@@ -8,11 +8,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./interfaces/IFMintAddressProvider.sol";
+import "./interfaces/IPriceOracle.sol";
+import "./config/FMintConfiguration.sol";
 import "./FantomCollateral.sol";
-import "./IPriceOracle.sol";
 
 // FantomFMint implements the contract of core DeFi function
-// for minting tokens againts a deposited collateral. The collateral
+// for minting tokens against a deposited collateral. The collateral
 // management is linked from the Fantom Collateral implementation.
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
