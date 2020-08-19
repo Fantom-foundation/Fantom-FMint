@@ -77,24 +77,24 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
     // collateralPriceOracle represents the address of the price
     // oracle aggregate used by the collateral to get
     // the price of a specific token.
-    address public const collateralPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
+    address public constant collateralPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
     // collateralPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
     // through an 8 digits USD (ChainLink compatible) price oracle
     // on any collateral price value calculation.
-    uint256 public const collateralPriceDigitsCorrection = 100000000;
+    uint256 public constant collateralPriceDigitsCorrection = 100000000;
 
     // collateralLowestDebtRatio4dec represents the lowest ratio between
     // collateral value and debt value allowed for the user.
     // User can not withdraw his collateral if the active ratio would
     // drop below this value.
     // The value is returned in 4 decimals, e.g. value 30000 = 3.0
-    uint256 public const collateralLowestDebtRatio4dec = 30000;
+    uint256 public constant collateralLowestDebtRatio4dec = 30000;
 
     // collateralRatioDecimalsCorrection represents the value to be used
     // to adjust result decimals after applying ratio to a value calculation.
-    uint256 public const collateralRatioDecimalsCorrection = 10000;
+    uint256 public constant collateralRatioDecimalsCorrection = 10000;
 
     // -------------------------------------------------------------
     // Collateral related utility functions
@@ -229,7 +229,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
     {
         // make sure a non-zero value is being deposited
         if (_amount == 0) {
-            return ERR_INVALID_ZERO_VALUE;
+            return ERR_ZERO_AMOUNT;
         }
 
         // make sure caller has enough balance to cover the deposit
@@ -272,7 +272,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
     function withdraw(address _token, uint256 _amount) public nonReentrant returns (uint256) {
         // make sure a non-zero value is being withdrawn
         if (_amount == 0) {
-            return ERR_INVALID_ZERO_VALUE;
+            return ERR_ZERO_AMOUNT;
         }
 
         // make sure the withdraw does not exceed collateral balance

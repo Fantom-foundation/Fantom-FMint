@@ -8,9 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./FantomCollateral.sol";
 import "./interface/IPriceOracle.sol";
 import "./interface/IFantomDeFiTokenRegistry.sol";
+import "./utils/FMintErrorCodes.sol";
+import "./FantomCollateral.sol";
+
 
 // FantomFMint implements the contract of core DeFi function
 // for minting tokens against a deposited collateral. The collateral
@@ -41,30 +43,30 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
     // fMintPriceOracle represents the address of the price
     // oracle aggregate used by the collateral to get
     // the price of a specific token.
-    address public const fMintPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
+    address public constant fMintPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
     // fTokenRegistry represents the address of the Fantom token
     // registry contract responsible for providing DeFi tokens information.
-    address public const fTokenRegistry = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
+    address public constant fTokenRegistry = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
 
     // fMintFeeToken represents the identification of the token
     // we use for fee by the fMint DeFi module (fUSD).
-    address public const fMintFeeToken = address(0xf15Ff135dc437a2FD260476f31B3547b84F5dD0b);
+    address public constant fMintFeeToken = address(0xf15Ff135dc437a2FD260476f31B3547b84F5dD0b);
 
     // fMintPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
     // through an 8 digits USD (ChainLink compatible) price oracle
     // on any minting price value calculation.
-    uint256 public const fMintPriceDigitsCorrection = 100000000;
+    uint256 public constant fMintPriceDigitsCorrection = 100000000;
 
     // fMintFee represents the current value of the minting fee used
     // for minter operations.
     // The value is kept in 4 decimals; 25 = 0.0025 = 0.25%
-    uint256 public const fMintFee = 25;
+    uint256 public constant fMintFee = 25;
 
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
-    uint256 public const fMintFeeDigitsCorrection = 10000;
+    uint256 public constant fMintFeeDigitsCorrection = 10000;
 
     // -------------------------------------------------------------
     // Minter functions below
@@ -73,22 +75,30 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
     // mint allows user to create a specified token against already established
     // collateral. The value of the collateral must be in at least configured
     // ratio to the total user's debt value on minting.
-    function mint(address _token, uint256 _amount) external nonReentrant
+    function mint(address _token, uint256 _amount) external nonReentrant returns (uint256)
     {
-        // make sure the debt amount makes sense
-        require(_amount > 0, "non-zero amount expected");
+        // make sure a non-zero value is being deposited
+        if (_amount == 0) {
+            return ERR_ZERO_AMOUNT;
+        }
 
-        // native tokens can not be minted
-        require(_token != fMintNativeToken(), "native tokens not mintable");
+        // make sure the requested token can be minted this way
+        if (!IFantomDeFiTokenRegistry(fTokenRegistry).canMint(_token)) {
+            return ERR_MINTING_PROHIBITED;
+        }
 
         // make sure there is some collateral established by this user
         // we still need to re-calculate the current value though, since the value
         // could have changed due to exchange rate fluctuation
-        require(_collateralValue[msg.sender] > 0, "missing collateral");
+        if (_collateralValue[msg.sender] == 0) {
+            return ERR_NO_COLLATERAL;
+        }
 
         // what is the value of the borrowed token?
         uint256 tokenValue = IPriceOracle(fMintPriceOracle).getPrice(_token);
-        require(tokenValue > 0, "token has no value");
+        if (tokenValue == 0) {
+            return ERR_NO_VALUE;
+        }
 
         // calculate the minting fee and store the value we gained by this operation
         uint256 fee = _amount
@@ -116,10 +126,13 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
                                         .mul(collateralLowestDebtRatio4dec)
-                                        .div(collateralRatioDecimalsCorrection());
+                                        .div(collateralRatioDecimalsCorrection);
 
         // does the new state obey the enforced minimal collateral to debt ratio?
-        require(cCollateralValue >= minCollateralValue, "insufficient collateral");
+        // if the check fails, minting is rejected
+        if (cCollateralValue < minCollateralValue) {
+            return ERR_LOW_COLLATERAL_RATIO;
+        }
 
         // update the current collateral and debt value
         _collateralValue[msg.sender] = cCollateralValue;
@@ -133,24 +146,30 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         ERC20(_token).safeTransfer(msg.sender, _amount);
 
         // emit the minter notification event
-        emit Minted(_token, msg.sender, _amount, block.timestamp);
+        emit Minted(_token, msg.sender, _amount);
+
+        // success
+        return ERR_NO_ERROR;
     }
 
     // repay allows user to return some of the debt of the specified token
     // the repay does not collect any fees and is not validating the user's total
     // collateral to debt position.
-    function repay(address _token, uint256 _amount) external nonReentrant
+    function repay(address _token, uint256 _amount) external nonReentrant returns (uint256)
     {
-        // make sure the amount repaid makes sense
-        require(_amount > 0, "non-zero amount expected");
+        // make sure a non-zero value is being deposited
+        if (_amount == 0) {
+            return ERR_ZERO_AMOUNT;
+        }
 
-        // native tokens can not be minted through this contract
-        // so there can not be any debt to be repaid on them
-        require(_token != fMintNativeToken(), "native tokens not mintable");
+        // make sure there is enough debt on the token specified (if any at all)
+        if (_amount > _debtByTokens[_token][msg.sender]) {
+            return ERR_LOW_BALANCE;
+        }
 
         // subtract the returned amount from the user debt
-        _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].sub(_amount, "insufficient debt outstanding");
-        _debtByUsers[msg.sender][_token] = _debtByUsers[msg.sender][_token].sub(_amount, "insufficient debt outstanding");
+        _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].sub(_amount);
+        _debtByUsers[msg.sender][_token] = _debtByUsers[msg.sender][_token].sub(_amount);
 
         // update current collateral and debt amount state
         _collateralValue[msg.sender] = collateralValue(msg.sender);
@@ -161,6 +180,9 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         ERC20Burnable(_token).burnFrom(msg.sender, _amount);
 
         // emit the repay notification
-        emit Repaid(_token, msg.sender, _amount, block.timestamp);
+        emit Repaid(_token, msg.sender, _amount);
+
+        // success
+        return ERR_NO_ERROR;
     }
 }
