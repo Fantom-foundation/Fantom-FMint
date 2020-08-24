@@ -9,81 +9,29 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interface/IPriceOracle.sol";
 import "./utils/FMintErrorCodes.sol";
+import "./utils/RewardDistributionRecipient.sol";
+import "./utils/FantomCollateralStorage.sol";
+import "./utils/FantomDebtStorage.sol";
 
 // FantomCollateral implements a collateral pool
 // for the related Fantom DeFi contract. The collateral is used
 // to manage tokens referenced on the balanced DeFi functions.
-contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
+contract FantomCollateral is
+            Ownable,
+            ReentrancyGuard,
+            FMintErrorCodes,
+            FantomCollateralStorage,
+            FantomDebtStorage,
+            RewardDistributionRecipient
+{
     // define used libs
     using SafeMath for uint256;
     using Address for address;
     using SafeERC20 for ERC20;
 
     // -------------------------------------------------------------
-    // Collateral related state variables
+    // Price and value calculation related constants
     // -------------------------------------------------------------
-
-    // _collateral tracks token => user => collateral amount relationship
-    mapping(address => mapping(address => uint256)) public _collateralByTokens;
-
-    // _collateralTokens tracks user => token => collateral amount relationship
-    mapping(address => mapping(address => uint256)) public _collateralByUsers;
-
-    // _collateralList tracks user => collateral tokens list
-    mapping(address => address[]) public _collateralList;
-
-    // _collateralValue tracks user => collateral value
-    // in ref. denomination (fUSD).
-    // Please note this is a stored value from the last collateral calculation
-    // and may not be accurate due to the ref. denomination exchange
-    // rate change.
-    mapping(address => uint256) public _collateralValue;
-
-    // -------------------------------------------------------------
-    // Debt related state variables
-    // -------------------------------------------------------------
-
-    // _debt tracks token => user => debt amount relationship
-    mapping(address => mapping(address => uint256)) public _debtByTokens;
-
-    // _debtTokens tracks user => token => debt amount relationship
-    mapping(address => mapping(address => uint256)) public _debtByUsers;
-
-    // _debtList tracks user => debt tokens list
-    mapping(address => address[]) public _debtList;
-
-    // _debtValue tracks user => debt value in ref. denomination (fUSD)
-    // please note this is a stored value from the last debt calculation
-    // and may not be accurate due to the ref. denomination exchange
-    // rate change.
-    mapping(address => uint256) public _debtValue;
-
-    // -------------------------------------------------------------
-    // Emitted events definition
-    // -------------------------------------------------------------
-
-    // Deposited is emitted on token received to deposit
-    // increasing user's collateral value.
-    event Deposited(address indexed token, address indexed user, uint256 amount);
-
-    // Withdrawn is emitted on confirmed token withdraw
-    // from the deposit decreasing user's collateral value.
-    event Withdrawn(address indexed token, address indexed user, uint256 amount);
-
-    // -------------------------------------------------------------
-    // Price and value calculation related utility functions
-    // -------------------------------------------------------------
-
-    // collateralPriceOracle represents the address of the price
-    // oracle aggregate used by the collateral to get
-    // the price of a specific token.
-    address public constant collateralPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-
-    // collateralPriceDigitsCorrection represents the correction required
-    // for FTM/ERC20 (18 digits) to another 18 digits number exchange
-    // through an 8 digits USD (ChainLink compatible) price oracle
-    // on any collateral price value calculation.
-    uint256 public constant collateralPriceDigitsCorrection = 100000000;
 
     // collateralLowestDebtRatio4dec represents the lowest ratio between
     // collateral value and debt value allowed for the user.
@@ -97,126 +45,48 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
     uint256 public constant collateralRatioDecimalsCorrection = 10000;
 
     // -------------------------------------------------------------
-    // Collateral related utility functions
+    // Rewards distribution related constants
     // -------------------------------------------------------------
 
-    // enrolCollateral ensures the specified token
-    // is in user's list of collateral tokens for future reference
-    // and client side listing purposes.
-    function enrolCollateral(address _token, address _owner) internal {
-        bool found = false;
-        address[] memory list = _collateralList[_owner];
+    // collateralRewardsPool represents the address of the pool used to settle
+    // collateral rewards to eligible accounts.
+    address public constant collateralRewardsPool = "0xf1277d1ed8ad466beddf92ef448a132661956621";
 
-        // loop the current list and try to find the token
-        for (uint256 i = 0; i < list.length; i++) {
-            if (list[i] == _token) {
-                found = true;
-                break;
-            }
-        }
-
-        // add the token to the list if not found
-        if (!found) {
-            _collateralList[_owner].push(_token);
-        }
-    }
-
-    // collateralListCount returns the number of tokens enrolled
-    // on the collateral list for the given user.
-    function collateralListCount(address _owner) public view returns (uint256) {
-        // any collateral at all?
-        if (_collateralValue[_owner] == 0) {
-            return 0;
-        }
-
-        // return the current collateral array length
-        return _collateralList[_owner].length;
-    }
-
-    // collateralValue calculates the current value of all collateral assets
-    // of a user in the ref. denomination (fUSD).
-    function collateralValue(address _user) public view returns (uint256 cValue)
-    {
-        // loop all registered collateral tokens of the user
-        for (uint i = 0; i < _collateralList[_user].length; i++) {
-            // get the current exchange rate of the specific token
-            uint256 rate = IPriceOracle(collateralPriceOracle)
-                                .getPrice(_collateralList[_user][i]);
-
-            // add the asset token value to the total;
-            // the amount is corrected for the oracle price precision digits.
-            // the asset amount is taken from the mapping
-            // _collateralByTokens: token address => owner address => amount
-            cValue = cValue.add(
-                _collateralByTokens[_collateralList[_user][i]][_user]
-                .mul(rate)
-                .div(collateralPriceDigitsCorrection)
-            );
-        }
-
-        return cValue;
-    }
+    // rewardEpochLength represents the shortest possible length of the rewards
+    // epoch where accounts can claim their accumulated rewards from staked collateral.
+    uint256 public constant rewardEpochLength = 7 days;
 
     // -------------------------------------------------------------
-    // Debt related utility functions
+    // Rewards distribution related state
     // -------------------------------------------------------------
 
-    // enrolDebt ensures the specified token
-    // is in user's list of debt tokens for future reference
-    // and client side listing purposes.
-    function enrolDebt(address _token, address _owner) internal {
-        bool found = false;
-        address[] memory list = _debtList[_owner];
-
-        // loop the current list and try to find the token
-        for (uint256 i = 0; i < list.length; i++) {
-            if (list[i] == _token) {
-                found = true;
-                break;
-            }
-        }
-
-        // add the token to the list if not found
-        if (!found) {
-            _debtList[_owner].push(_token);
-        }
+    // TRewardEpoch represents the structure
+    // holding details of the current rewards epoch.
+    struct TRewardEpoch {
+        uint256 rewardsRate;        // rate of the rewards distribution
+        uint256 epochEnds;          // time stamp of the end of this epoch
+        uint256 updated;            // time stamp of the last update of the accumulated rewards
+        uint256 accumulatedRewards; // accumulated rewards on the epoch
     }
 
-    // debtListCount returns the number of tokens enrolled
-    // on the debt list for the given user.
-    function debtListCount(address _owner) public view returns (uint256) {
-        // any debt at all for the user?
-        if (_debtValue[_owner] == 0) {
-            return 0;
-        }
+    // rewardEpoch represents the current reward epoch details.
+    TRewardEpoch public rewardEpoch;
 
-        // return the current debt array length
-        return _debtList[_owner].length;
-    }
+    // -------------------------------------------------------------
+    // Emitted events definition
+    // -------------------------------------------------------------
 
-    // debtValue calculates the current value of all debt assets
-    // of a user in the ref. denomination (fUSD).
-    function debtValue(address _user) public view returns (uint256 cValue)
-    {
-        // loop all registered debt tokens of the user
-        for (uint i = 0; i < _debtList[_user].length; i++) {
-            // get the current exchange rate of the specific token
-            uint256 rate = IPriceOracle(collateralPriceOracle)
-                                .getPrice(_debtList[_user][i]);
+    // Deposited is emitted on token received to deposit
+    // increasing user's collateral value.
+    event Deposited(address indexed token, address indexed user, uint256 amount);
 
-            // add the asset token value to the total;
-            // the amount is corrected for the oracle price precision digits
-            // the asset amount is taken from the mapping
-            // _debtByTokens: token address => owner address => amount
-            cValue = cValue.add(
-                _debtByTokens[_debtList[_user][i]][_user]
-                .mul(rate)
-                .div(collateralPriceDigitsCorrection)
-            );
-        }
+    // Withdrawn is emitted on confirmed token withdraw
+    // from the deposit decreasing user's collateral value.
+    event Withdrawn(address indexed token, address indexed user, uint256 amount);
 
-        return cValue;
-    }
+    // RewardAdded is emitted on starting new rewards epoch with specified amount
+    // of rewards, which correspond to a reward rate per second based on epoch length.
+    event RewardAdded(uint256 reward);
 
     // -------------------------------------------------------------
     // Collateral management functions below
@@ -256,7 +126,7 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
 
         // re-calculate the current value of the whole collateral deposit
         // across all assets kept
-        _collateralValue[msg.sender] = collateralValue(msg.sender);
+        updateCollateralValueOf(msg.sender);
 
         // emit the event signaling a successful deposit
         emit Deposited(_token, msg.sender, _amount);
@@ -280,14 +150,13 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
             return ERR_LOW_BALANCE;
         }
 
-        // update collateral value of the token to a new value
-        _collateralByTokens[_token][msg.sender] = _collateralByTokens[_token][msg.sender].sub(_amount);
-        _collateralByUsers[msg.sender][_token] = _collateralByUsers[msg.sender][_token].sub(_amount);
-
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts
         uint256 cDebtValue = debtValue(msg.sender);
         uint256 cCollateralValue = collateralValue(msg.sender);
+
+        // lower the collateral value by the withdraw value
+        cCollateralValue.sub(tokenValue(_token, _amount));
 
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
@@ -298,11 +167,16 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
         // does the new state obey the enforced minimal collateral to debt ratio?
         // if the check fails, the collateral withdraw is rejected
         if (cCollateralValue < minCollateralValue) {
+            // emit error
             return ERR_LOW_COLLATERAL_RATIO;
         }
 
-        // the new collateral value is ok; update the stored collateral and debt values
-        _collateralValue[msg.sender] = cCollateralValue;
+        // update collateral value of the token to a new value
+        _collateralByTokens[_token][msg.sender] = _collateralByTokens[_token][msg.sender].sub(_amount);
+        _collateralByUsers[msg.sender][_token] = _collateralByUsers[msg.sender][_token].sub(_amount);
+
+        // the new collateral value is all right; update the stored collateral and debt values
+        updateCollateralValueOf(msg.sender);
         _debtValue[msg.sender] = cDebtValue;
 
         // transfer the requested amount of ERC20 tokens from the local pool to the caller
@@ -313,5 +187,54 @@ contract FantomCollateral is Ownable, ReentrancyGuard, FMintErrorCodes {
 
         // withdraw successful
         return ERR_NO_ERROR;
+    }
+
+    // -------------------------------------------------------------
+    // Rewards management functions below
+    // -------------------------------------------------------------
+
+    // notifyRewardAmount is called by contract management to start new rewards epoch
+    // with a new reward added to the reward pool.
+    function notifyRewardAmount(uint256 reward) external onlyRewardDistribution {
+        // calculate remaining reward from the previous epoch
+        // and add it to the notified reward if the epoch
+        // is to end sooner than it's expected
+        if (now < rewardEpoch.epochEnds) {
+            uint256 leftover = rewardEpoch.epochEnds.sub(now).mul(rewardRate);
+            reward = reward.add(leftover);
+        }
+
+        // start new rewards epoch with the new reward rate
+        rewardEpoch.rewardRate = reward.div(rewardEpochLength);
+        rewardEpoch.epochEnds = now.add(rewardEpochLength);
+        rewardEpoch.updated = now;
+
+        // emit the events to notify new epoch with the updated rewards rate
+        emit RewardAdded(reward);
+    }
+
+    // rewardApplicableUntil returns the time stamp of the latest applicable
+    // time rewards can be calculated towards.
+    function rewardApplicableUntil() public view returns (uint256) {
+        return Math.min(now, rewardEpoch.epochEnds);
+    }
+
+    // rewardPerToken calculates the reward share per virtual collateral value
+    // token.
+    function rewardPerToken() public view returns (uint256) {
+        // is there any collateral value? if not, return accumulated
+        // rewards only
+        if (totalSupply() == 0) {
+            return rewardPerTokenStored;
+        }
+
+        // return accumulated rewards plus the rewards
+        // coming from the current reward rate
+        return rewardPerTokenStored.add(
+                rewardApplicableUntil().sub(rewardEpoch)
+                    .mul(rewardRate)
+                    .mul(1e18)
+                    .div(totalSupply())
+        );
     }
 }
