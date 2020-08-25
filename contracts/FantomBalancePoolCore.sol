@@ -62,6 +62,15 @@ contract FantomBalancePoolCore is
     // balance in the system.
     uint256 public constant rewardPerTokenDecimalsCorrection = 1**18;
 
+    // rewardClaimRatio4dec represents the collateral to debt ratio user has to have
+    // to be able to claim accumulated rewards.
+    // The value is kept in 4 decimals, e.g. value 50000 = 5.0
+    uint256 public constant rewardClaimRatio4dec = 50000;
+
+    // rewardClaimRatioDecimalsCorrection represents the the value to be used
+    // to adjust claim check decimals after applying ratio to a value calculation.
+    uint256 public constant rewardClaimRatioDecimalsCorrection = 10000;
+
     // -------------------------------------------------------------
     // Rewards distribution related state
     // -------------------------------------------------------------
@@ -333,7 +342,7 @@ contract FantomBalancePoolCore is
     }
 
     // rewardClaim transfers earned rewards to the caller account address
-    function rewardClaim() public {
+    function rewardClaim() public returns (uint256) {
         // update the reward distribution for the account
         rewardUpdate(msg.sender);
 
@@ -346,15 +355,43 @@ contract FantomBalancePoolCore is
         // the reward update call above.
 
         // are there any at all?
-        if (0 < reward) {
-            // reset accumulated rewards on the account
-            rewardStash[msg.sender] = 0;
-
-            // transfer earned reward tokens to the caller
-            ERC20(collateralRewardsPool).safeTransfer(msg.sender, reward);
-
-            // notify about the action
-            emit RewardPaid(msg.sender, reward);
+        if (0 == reward) {
+            return ERR_NO_REWARD;
         }
+
+        // check if the account can claim
+        if (!rewardCanClaim(msg.sender)) {
+            return ERR_REWARD_CLAIM_REJECTED;
+        }
+
+        // reset accumulated rewards on the account
+        rewardStash[msg.sender] = 0;
+
+        // transfer earned reward tokens to the caller
+        ERC20(collateralRewardsPool).safeTransfer(msg.sender, reward);
+
+        // notify about the action
+        emit RewardPaid(msg.sender, reward);
+
+        // claim successful
+        return ERR_NO_ERROR;
+    }
+
+    // rewardCanClaim checks if the account can claim accumulated rewards
+    // by being on a high enough collateral to debt ratio.
+    function rewardCanClaim(address _account) public view returns (bool) {
+        // calculate the collateral and debt values in ref. denomination
+        // for the current exchange rate and balance amounts
+        uint256 cDebtValue = debtBalanceOf(_account);
+        uint256 cCollateralValue = collateralBalanceOf(_account);
+
+        // minCollateralValue is the minimal collateral value required for the current debt
+        // to be within the allowed collateral to debt ratio for reward claiming
+        uint256 minCollateralValue = cDebtValue
+                                        .mul(rewardClaimRatio4dec)
+                                        .div(rewardClaimRatioDecimalsCorrection);
+
+        // final collateral value must match the minimal value or exceed it
+        return (cCollateralValue >= minCollateralValue);
     }
 }
