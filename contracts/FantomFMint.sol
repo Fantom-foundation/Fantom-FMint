@@ -11,8 +11,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interface/IPriceOracle.sol";
 import "./interface/IFantomDeFiTokenRegistry.sol";
 import "./utils/FMintErrorCodes.sol";
-import "./FantomCollateral.sol";
-
+import "./FantomBalancePoolCore.sol";
 
 // FantomFMint implements the contract of core DeFi function
 // for minting tokens against a deposited collateral. The collateral
@@ -20,7 +19,7 @@ import "./FantomCollateral.sol";
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
 // of any fee.
-contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
+contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
@@ -82,16 +81,9 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
             return ERR_ZERO_AMOUNT;
         }
 
-        // make sure the requested token can be minted this way
+        // make sure the requested token can be minted
         if (!IFantomDeFiTokenRegistry(fTokenRegistry).canMint(_token)) {
             return ERR_MINTING_PROHIBITED;
-        }
-
-        // make sure there is some collateral established by this user
-        // we still need to re-calculate the current value though, since the value
-        // could have changed due to exchange rate fluctuation
-        if (_collateralValue[msg.sender] == 0) {
-            return ERR_NO_COLLATERAL;
         }
 
         // what is the value of the borrowed token?
@@ -100,7 +92,18 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
             return ERR_NO_VALUE;
         }
 
+        // make sure the debt can be increased on the account
+        if (!debtCanIncrease(msg.sender, _token, _amount)) {
+            return ERR_LOW_COLLATERAL_RATIO;
+        }
+
+        // add the minted amount to the debt
+        debtAdd(msg.sender, _token, _amount);
+
         // calculate the minting fee and store the value we gained by this operation
+        // @NOTE: We don't check if the fee can be added to the account debt
+        // assuming that if the debt could be increased for the minted account, it could
+        // accommodate the fee as well (the collateral slippage is in play).
         uint256 fee = _amount
                         .mul(tokenValue)
                         .mul(fMintFee)
@@ -108,42 +111,12 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
                         .div(fMintPriceDigitsCorrection);
         feePool = feePool.add(fee);
 
-        // register the debt of the fee in the fee token
-        _debtByTokens[fMintFeeToken][msg.sender] = _debtByTokens[fMintFeeToken][msg.sender].add(fee);
-        _debtByUsers[msg.sender][fMintFeeToken] = _debtByUsers[msg.sender][fMintFeeToken].add(fee);
-        enrolDebt(fMintFeeToken, msg.sender);
+        // add the fee to debt
+        debtAdd(msg.sender, fMintFeeToken, fee);
 
-        // register the debt of minted token
-        _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].add(_amount);
-        _debtByUsers[msg.sender][_token] = _debtByUsers[msg.sender][_token].add(_amount);
-        enrolDebt(_token, msg.sender);
-
-        // recalculate current collateral and debt values
-        uint256 cCollateralValue = collateralValue(msg.sender);
-        uint256 cDebtValue = debtValue(msg.sender);
-
-        // minCollateralValue is the minimal collateral value required for the current debt
-        // to be within the minimal allowed collateral to debt ratio
-        uint256 minCollateralValue = cDebtValue
-                                        .mul(collateralLowestDebtRatio4dec)
-                                        .div(collateralRatioDecimalsCorrection);
-
-        // does the new state obey the enforced minimal collateral to debt ratio?
-        // if the check fails, minting is rejected
-        if (cCollateralValue < minCollateralValue) {
-            return ERR_LOW_COLLATERAL_RATIO;
-        }
-
-        // update the current collateral and debt value
-        _collateralValue[msg.sender] = cCollateralValue;
-        _debtValue[msg.sender] = cDebtValue;
-
-        // mint the requested balance for the ERC20 tokens to cover the transfer
-        // NOTE: the local address has to have the minter privilege
-        ERC20Mintable(_token).mint(address(this), _amount);
-
-        // transfer minted tokens to the user address
-        ERC20(_token).safeTransfer(msg.sender, _amount);
+        // mint the requested balance of the ERC20 token
+        // @NOTE: the fMint contract must have the minter privilege on the ERC20 token!
+        ERC20Mintable(_token).mint(msg.sender, _amount);
 
         // emit the minter notification event
         emit Minted(_token, msg.sender, _amount);
@@ -163,21 +136,21 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomCollateral {
         }
 
         // make sure there is enough debt on the token specified (if any at all)
-        if (_amount > _debtByTokens[_token][msg.sender]) {
+        if (_amount > _debtBalance[msg.sender][_token]) {
             return ERR_LOW_BALANCE;
         }
 
-        // subtract the returned amount from the user debt
-        _debtByTokens[_token][msg.sender] = _debtByTokens[_token][msg.sender].sub(_amount);
-        _debtByUsers[msg.sender][_token] = _debtByUsers[msg.sender][_token].sub(_amount);
-
-        // update current collateral and debt amount state
-        _collateralValue[msg.sender] = collateralValue(msg.sender);
-        _debtValue[msg.sender] = debtValue(msg.sender);
+        // make sure we are allowed to transfer funds from the caller
+        // to the fMint deposit pool
+        if (_amount > ERC20(_token).allowance(msg.sender, address(this))) {
+            return ERR_LOW_ALLOWANCE;
+        }
 
         // burn the tokens returned by the user
-        // NOTE: Allowance must be granted by the tokens owner before to allow the burning
         ERC20Burnable(_token).burnFrom(msg.sender, _amount);
+
+        // clear the repaid amount from the account debt balance
+        debtSub(msg.sender, _token, _amount);
 
         // emit the repay notification
         emit Repaid(_token, msg.sender, _amount);
