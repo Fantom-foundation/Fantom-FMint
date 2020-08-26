@@ -60,7 +60,7 @@ contract FantomBalancePoolCore is
     // rewardPerTokenDecimalsCorrection represents the correction done on rewards per token
     // so the calculation does not loose precision on very low reward rates and high collateral
     // balance in the system.
-    uint256 public constant rewardPerTokenDecimalsCorrection = 1**18;
+    uint256 public constant rewardPerTokenDecimalsCorrection = 1e6;
 
     // rewardClaimRatio4dec represents the collateral to debt ratio user has to have
     // to be able to claim accumulated rewards.
@@ -335,6 +335,10 @@ contract FantomBalancePoolCore is
     // for right now based on its collateral balance value and the total value
     // of all collateral tokens in the system
     function rewardEarned(address _account) public view returns (uint256) {
+        // @NOTE: We calculate the rewards earned from the whole collateral value,
+        // but we may consider changing it to use only excessive collateral above
+        // certain collateral to debt ratio.
+        // e.g. excessive collateral = collateral value - (debt value * 300%)
         return collateralBalanceOf(_account)
                 .mul(rewardPerToken().sub(rewardPerTokenPaid[_account]))
                 .div(rewardPerTokenDecimalsCorrection)
@@ -360,6 +364,10 @@ contract FantomBalancePoolCore is
         }
 
         // check if the account can claim
+        // @NOTE: We may not need this check if the actual amount of rewards will
+        // be calculated from an excessive amount of collateral compared to debt
+        // including certain ration (e.g. debt value * 300% < collateral value)
+        // @see rewardEarned() call above
         if (!rewardCanClaim(msg.sender)) {
             return ERR_REWARD_CLAIM_REJECTED;
         }
