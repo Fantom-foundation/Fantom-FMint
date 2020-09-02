@@ -67,7 +67,7 @@ contract FantomCollateralStorage {
         // loop all registered collateral tokens
         for (uint i = 0; i < _collateralTokens.length; i++) {
             // advance the total value by the current collateral balance token value
-            tBalance.add(collateralTokenValue(_collateralTokens[i], _collateralTotalBalance[_collateralTokens[i]]));
+            tBalance = tBalance.add(collateralTokenValue(_collateralTokens[i], _collateralTotalBalance[_collateralTokens[i]]));
         }
 
         // return the calculated balance
@@ -81,7 +81,7 @@ contract FantomCollateralStorage {
         for (uint i = 0; i < _collateralTokens.length; i++) {
             // advance the value by the current collateral balance tokens on the account token scanned
             if (0 < _collateralBalance[_account][_collateralTokens[i]]) {
-                aBalance.add(collateralTokenValue(_collateralTokens[i], _collateralBalance[_account][_collateralTokens[i]]));
+                aBalance = aBalance.add(collateralTokenValue(_collateralTokens[i], _collateralBalance[_account][_collateralTokens[i]]));
             }
         }
 

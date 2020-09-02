@@ -67,7 +67,7 @@ contract FantomDebtStorage {
         // loop all registered debt tokens
         for (uint i = 0; i < _debtTokens.length; i++) {
             // advance the total value by the current debt balance token value
-            tBalance.add(debtTokenValue(_debtTokens[i], _debtTotalBalance[_debtTokens[i]]));
+            tBalance = tBalance.add(debtTokenValue(_debtTokens[i], _debtTotalBalance[_debtTokens[i]]));
         }
 
         return tBalance;
@@ -79,7 +79,7 @@ contract FantomDebtStorage {
         for (uint i = 0; i < _debtTokens.length; i++) {
             // advance the value by the current debt balance tokens on the account token scanned
             if (0 < _debtBalance[_account][_debtTokens[i]]) {
-                aBalance.add(debtTokenValue(_debtTokens[i], _debtBalance[_account][_debtTokens[i]]));
+                aBalance = aBalance.add(debtTokenValue(_debtTokens[i], _debtBalance[_account][_debtTokens[i]]));
             }
         }
 
