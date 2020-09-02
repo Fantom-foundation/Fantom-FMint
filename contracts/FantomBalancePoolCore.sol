@@ -205,16 +205,15 @@ contract FantomBalancePoolCore is
     // Collateral to debt ratio checks below
     // -------------------------------------------------------------
 
-    // collateralCanDecrease checks if the specified amount of collateral can be removed from account
-    // without breaking collateral to debt ratio rule
-    function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
+    // isCollateralSufficient checks if collateral value is sufficient
+    // to cover the debt (collateral to debt ratio) after
+    // predefined adjustments to the collateral and debt values.
+    function isCollateralSufficient(address _account, uint256 subCollateral, uint256 addDebt) internal view returns (bool) {
         // calculate the collateral and debt values in ref. denomination
-        // for the current exchange rate and balance amounts
-        uint256 cDebtValue = debtBalanceOf(_account);
-        uint256 cCollateralValue = collateralBalanceOf(_account);
-
-        // lower the collateral value by the withdraw value
-        cCollateralValue.sub(collateralTokenValue(_token, _amount));
+        // for the current exchange rate and balance amounts including
+        // given adjustments to both values as requested.
+        uint256 cDebtValue = debtBalanceOf(_account).add(addDebt);
+        uint256 cCollateralValue = collateralBalanceOf(_account).sub(subCollateral);
 
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
@@ -226,25 +225,18 @@ contract FantomBalancePoolCore is
         return (cCollateralValue >= minCollateralValue);
     }
 
+    // collateralCanDecrease checks if the specified amount of collateral can be removed from account
+    // without breaking collateral to debt ratio rule.
+    function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
+        // collateral to debt ratio must be valid after collateral decrease
+        return isCollateralSufficient(_account, collateralTokenValue(_token, _amount), 0);
+    }
+
     // debtCanIncrease checks if the specified amount of debt can be added to the account
-    // without breaking collateral to debt ratio rule
+    // without breaking collateral to debt ratio rule.
     function debtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
-        // calculate the collateral and debt values in ref. denomination
-        // for the current exchange rate and balance amounts
-        uint256 cDebtValue = debtBalanceOf(_account);
-        uint256 cCollateralValue = collateralBalanceOf(_account);
-
-        // increase the current debt by the value of the newly requested debt
-        cDebtValue.add(collateralTokenValue(_token, _amount));
-
-        // minCollateralValue is the minimal collateral value required for the current debt
-        // to be within the minimal allowed collateral to debt ratio
-        uint256 minCollateralValue = cDebtValue
-                                        .mul(collateralLowestDebtRatio4dec)
-                                        .div(collateralRatioDecimalsCorrection);
-
-        // final collateral value must match the minimal value or exceed it
-        return (cCollateralValue >= minCollateralValue);
+        // collateral to debt ratio must be valid after debt increase
+        return isCollateralSufficient(_account, 0, collateralTokenValue(_token, _amount));
     }
 
     // -------------------------------------------------------------
@@ -388,18 +380,6 @@ contract FantomBalancePoolCore is
     // rewardCanClaim checks if the account can claim accumulated rewards
     // by being on a high enough collateral to debt ratio.
     function rewardCanClaim(address _account) public view returns (bool) {
-        // calculate the collateral and debt values in ref. denomination
-        // for the current exchange rate and balance amounts
-        uint256 cDebtValue = debtBalanceOf(_account);
-        uint256 cCollateralValue = collateralBalanceOf(_account);
-
-        // minCollateralValue is the minimal collateral value required for the current debt
-        // to be within the allowed collateral to debt ratio for reward claiming
-        uint256 minCollateralValue = cDebtValue
-                                        .mul(rewardClaimRatio4dec)
-                                        .div(rewardClaimRatioDecimalsCorrection);
-
-        // final collateral value must match the minimal value or exceed it
-        return (cCollateralValue >= minCollateralValue);
+        return isCollateralSufficient(_account, 0, 0);
     }
 }
