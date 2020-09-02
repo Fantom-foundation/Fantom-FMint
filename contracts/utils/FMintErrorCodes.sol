@@ -30,11 +30,11 @@ contract FMintErrorCodes {
 	uint256 public constant ERR_NO_VALUE = 0x1007;
 
 	// Error Code: Requested token has no known value.
-	uint256 public constant ERR_DEBT_EXCEEDED = 0x1007;
+	uint256 public constant ERR_DEBT_EXCEEDED = 0x1008;
 
 	// Error Code: No reward available on the account.
-	uint256 public constant ERR_NO_REWARD = 0x1008;
+	uint256 public constant ERR_NO_REWARD = 0x1009;
 
 	// Error Code: Reward can not be claimed, collateral to debt ration too low.
-	uint256 public constant ERR_REWARD_CLAIM_REJECTED = 0x1009;
+	uint256 public constant ERR_REWARD_CLAIM_REJECTED = 0x100A;
 }
