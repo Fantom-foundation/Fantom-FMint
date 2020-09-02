@@ -148,6 +148,12 @@ contract FantomBalancePoolCore is
             return ERR_LOW_ALLOWANCE;
         }
 
+        // make sure the token has a value before we accept it as a collateral
+        uint256 _rate = IPriceOracle(collateralPriceOracle).getPrice(_token);
+        if (_rate == 0) {
+            return ERR_NO_VALUE;
+        }
+
         // transfer ERC20 tokens from account to the collateral pool
         ERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
 
