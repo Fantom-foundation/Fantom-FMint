@@ -17,21 +17,6 @@ contract FantomDebtStorage {
     using SafeERC20 for ERC20;
 
     // -------------------------------------------------------------
-    // Price and value related constants
-    // -------------------------------------------------------------
-
-    // debtPriceOracle represents the address of the price
-    // oracle aggregate used by the debt to get
-    // the price of a specific token.
-    address public constant debtPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-
-    // debtPriceDigitsCorrection represents the correction required
-    // for FTM/ERC20 (18 digits) to another 18 digits number exchange
-    // through an 8 digits USD (ChainLink compatible) price oracle
-    // on any debt price value calculation.
-    uint256 public constant debtPriceDigitsCorrection = 100000000;
-
-    // -------------------------------------------------------------
     // Debt related state variables
     // -------------------------------------------------------------
 
@@ -51,15 +36,8 @@ contract FantomDebtStorage {
     // Debt value related calculations
     // -------------------------------------------------------------
 
-    // debtTokenValue calculates the value of the given amount of the token specified.
-    // The value is returned in given referential tokens (fUSD).
-    function debtTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        // get the current exchange rate of the specific token
-        uint256 rate = IPriceOracle(debtPriceOracle).getPrice(_token);
-
-        // calculate the value
-        return _amount.mul(rate).div(debtPriceDigitsCorrection);
-    }
+    // tokenValue (abstract) returns the value of the given amount of the token specified.
+    function tokenValue(address _token, uint256 _amount) public view returns (uint256);
 
     // debtBalance returns the total value of all the debt tokens
     // registered inside the storage.
@@ -67,7 +45,7 @@ contract FantomDebtStorage {
         // loop all registered debt tokens
         for (uint i = 0; i < _debtTokens.length; i++) {
             // advance the total value by the current debt balance token value
-            tBalance = tBalance.add(debtTokenValue(_debtTokens[i], _debtTotalBalance[_debtTokens[i]]));
+            tBalance = tBalance.add(tokenValue(_debtTokens[i], _debtTotalBalance[_debtTokens[i]]));
         }
 
         return tBalance;
@@ -79,7 +57,7 @@ contract FantomDebtStorage {
         for (uint i = 0; i < _debtTokens.length; i++) {
             // advance the value by the current debt balance tokens on the account token scanned
             if (0 < _debtBalance[_account][_debtTokens[i]]) {
-                aBalance = aBalance.add(debtTokenValue(_debtTokens[i], _debtBalance[_account][_debtTokens[i]]));
+                aBalance = aBalance.add(tokenValue(_debtTokens[i], _debtBalance[_account][_debtTokens[i]]));
             }
         }
 

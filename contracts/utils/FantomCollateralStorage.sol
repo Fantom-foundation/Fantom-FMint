@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interface/IPriceOracle.sol";
 
-// FantomCollateralStorage implements a collateral storage used
+// FantomCollateralStorage<abstract> implements a collateral storage used
 // by the Fantom DeFi contract to track collateral accounts
 // balances and value.
 contract FantomCollateralStorage {
@@ -14,21 +14,6 @@ contract FantomCollateralStorage {
     using SafeMath for uint256;
     using Address for address;
     using SafeERC20 for ERC20;
-
-    // -------------------------------------------------------------
-    // Price and value related constants
-    // -------------------------------------------------------------
-
-    // collateralPriceOracle represents the address of the price
-    // oracle aggregate used by the collateral to get
-    // the price of a specific token.
-    address public constant collateralPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-
-    // collateralPriceDigitsCorrection represents the correction required
-    // for FTM/ERC20 (18 digits) to another 18 digits number exchange
-    // through an 8 digits USD (ChainLink compatible) price oracle
-    // on any collateral price value calculation.
-    uint256 public constant collateralPriceDigitsCorrection = 100000000;
 
     // -------------------------------------------------------------
     // Collateral related state variables by user address
@@ -51,15 +36,8 @@ contract FantomCollateralStorage {
     // amount since we do not use single token for collateral only.
     // -------------------------------------------------------------
 
-    // collateralTokenValue calculates the value of the given amount of the token specified.
-    // The value is returned in given referential tokens (fUSD).
-    function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        // get the current exchange rate of the specific token
-        uint256 rate = IPriceOracle(collateralPriceOracle).getPrice(_token);
-
-        // calculate the value
-        return _amount.mul(rate).div(collateralPriceDigitsCorrection);
-    }
+    // tokenValue (abstract) returns the value of the given amount of the token specified.
+    function tokenValue(address _token, uint256 _amount) public view returns (uint256);
 
     // collateralBalance returns the total value of all the collateral tokens
     // registered inside the storage.
@@ -67,7 +45,7 @@ contract FantomCollateralStorage {
         // loop all registered collateral tokens
         for (uint i = 0; i < _collateralTokens.length; i++) {
             // advance the total value by the current collateral balance token value
-            tBalance = tBalance.add(collateralTokenValue(_collateralTokens[i], _collateralTotalBalance[_collateralTokens[i]]));
+            tBalance = tBalance.add(tokenValue(_collateralTokens[i], _collateralTotalBalance[_collateralTokens[i]]));
         }
 
         // return the calculated balance
@@ -81,7 +59,7 @@ contract FantomCollateralStorage {
         for (uint i = 0; i < _collateralTokens.length; i++) {
             // advance the value by the current collateral balance tokens on the account token scanned
             if (0 < _collateralBalance[_account][_collateralTokens[i]]) {
-                aBalance = aBalance.add(collateralTokenValue(_collateralTokens[i], _collateralBalance[_account][_collateralTokens[i]]));
+                aBalance = aBalance.add(tokenValue(_collateralTokens[i], _collateralBalance[_account][_collateralTokens[i]]));
             }
         }
 
