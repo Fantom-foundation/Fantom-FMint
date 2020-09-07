@@ -33,4 +33,10 @@ interface IFMintAddressProvider {
 
 	// setRewardPool modifies the address of the reward pool contract.
 	function setRewardPool(address _addr) external;
+
+	// getFantomMint returns the address of the Fantom fMint contract.
+	function getFantomMint() external view returns (address);
+
+	// setFantomMint modifies the address of the Fantom fMint contract.
+	function setFantomMint(address _addr) external;
 }

@@ -18,7 +18,8 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	// ----------------------------------------------
 	// Module identifiers used by the address storage
 	// ----------------------------------------------
-
+	//
+	bytes32 private constant MOD_FANTOM_MINT = "fantom_mint";
 	bytes32 private constant MOD_PRICE_ORACLE = "price_oracle_aggregate";
 	bytes32 private constant MOD_REWARD_DISTRIBUTION = "reward_distribution";
 	bytes32 private constant MOD_TOKEN_REGISTRY = "token_registry";
@@ -165,5 +166,17 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	 */
 	function setRewardPool(address _addr) external onlyOwner {
 		setAddress(MOD_ERC20_REWARD_POOL, _addr);
+	}
+
+	/**
+	 * getFantomMint returns the address of the Fantom fMint contract.
+	 */
+	function getFantomMint() external view returns (address){
+		return getAddress(MOD_FANTOM_MINT);
+	}
+
+	// setFantomMint modifies the address of the Fantom fMint contract.
+	function setFantomMint(address _addr) external onlyOwner {
+		setAddress(MOD_FANTOM_MINT, _addr);
 	}
 }
