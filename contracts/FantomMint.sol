@@ -8,9 +8,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./interface/IPriceOracle.sol";
-import "./interface/IFMintAddressProvider.sol";
-import "./interface/IFantomDeFiTokenRegistry.sol";
+import "./interfaces/IPriceOracle.sol";
+import "./interfaces/IFMintAddressProvider.sol";
+import "./interfaces/IFantomDeFiTokenRegistry.sol";
 import "./modules/FMintErrorCodes.sol";
 import "./modules/FantomMintCore.sol";
 

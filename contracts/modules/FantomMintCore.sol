@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interface/IPriceOracle.sol";
+import "../interfaces/IPriceOracle.sol";
 import "./FMintErrorCodes.sol";
 import "./FantomCollateralStorage.sol";
 import "./FantomDebtStorage.sol";

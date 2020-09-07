@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interface/IPriceOracle.sol";
+import "../interfaces/IPriceOracle.sol";
 
 // FantomDebtStorage implements a debt storage used
 // by the Fantom DeFi contract to track debt accounts balances and value.
