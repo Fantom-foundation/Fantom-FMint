@@ -9,17 +9,18 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interface/IPriceOracle.sol";
+import "./interface/IFMintAddressProvider.sol";
 import "./interface/IFantomDeFiTokenRegistry.sol";
 import "./utils/FMintErrorCodes.sol";
-import "./FantomBalancePoolCore.sol";
+import "./FantomMintCore.sol";
 
-// FantomFMint implements the contract of core DeFi function
+// FantomMint implements the contract of core DeFi function
 // for minting tokens against a deposited collateral. The collateral
 // management is linked from the Fantom Collateral implementation.
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
 // of any fee.
-contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
+contract FantomMint is Ownable, ReentrancyGuard, FantomMintCore {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
@@ -35,22 +36,13 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
     // Repaid is emitted on confirmed token repay of user's debt of the token.
     event Repaid(address indexed token, address indexed user, uint256 amount);
 
-    // -------------------------------------------------------------
-    // Price and value calculation related utility functions
-    // -------------------------------------------------------------
+    // ----------------------------
+    // Fantom minter configuration
+    // ----------------------------
 
-    // fMintPriceOracle represents the address of the price
-    // oracle aggregate used by the collateral to get
-    // the price of a specific token.
-    address public constant fMintPriceOracle = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-
-    // fTokenRegistry represents the address of the Fantom token
-    // registry contract responsible for providing DeFi tokens information.
-    address public constant fTokenRegistry = address(0x03AFBD57cfbe0E964a1c4DBA03B7154A6391529b);
-
-    // fMintFeeToken represents the identification of the token
-    // we use for fee by the fMint DeFi module (fUSD).
-    address public constant fMintFeeToken = address(0xf15Ff135dc437a2FD260476f31B3547b84F5dD0b);
+    // addressProvider represents the connection to other FMint related
+    // contracts.
+    IFMintAddressProvider public addressProvider;
 
     // fMintPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
@@ -67,8 +59,59 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
     // to adjust result decimals after applying fee to a value calculation.
     uint256 public constant fMintFeeDigitsCorrection = 10000;
 
+    // constructor initializes a new instance of the fMint module.
+    constructor(address _addressProvider) public {
+        // remember the address provider connecting satellite contracts to the minter
+        addressProvider = IFMintAddressProvider(_addressProvider);
+    }
+
     // -------------------------------------------------------------
-    // Minter functions below
+    // Utility contracts address resolvers
+    // -------------------------------------------------------------
+
+    // rewardPoolAddress returns address of the reward tokens pool.
+    // The pool is used to settle rewards to eligible accounts.
+    // Used in FantomMintRewardManager.
+    function rewardPoolAddress() public view returns (address) {
+        return addressProvider.getRewardPool();
+    }
+
+    // rewardDistributionAddress returns address of the reward distribution contract.
+    function rewardDistributionAddress() public view returns (address) {
+        return addressProvider.getRewardDistribution();
+    }
+
+    // tokenRegistryAddress returns address of the DeFi token registry.
+    function tokenRegistryAddress() public view returns (address) {
+        return addressProvider.getTokenRegistry();
+    }
+
+    // feeTokenAddress returns address of the ERC20 token used for the fee.
+    function feeTokenAddress() public view returns (address) {
+        return addressProvider.getFeeToken();
+    }
+
+    // -------------------------------------------------------------
+    // Token price calculation functions
+    // -------------------------------------------------------------
+
+    // getPrice (abstract) returns the price of given ERC20 token using on-chain oracle
+    // expression of an exchange rate between the token and base denomination.
+    function getPrice(address _token) public view returns (uint256) {
+        // use linked price oracle aggregate to get the token exchange price
+        return IPriceOracle(addressProvider.getPriceOracle()).getPrice(_token);
+    }
+
+    // getPriceDigitsCorrection (abstract) returns the correction to the calculated
+    // ERC20 token value to correct exchange rate digits correction.
+    function getPriceDigitsCorrection() public pure returns (uint256) {
+        // price oracles we use (ChainLink) use 8 digits exchange rate correction
+        // NOTE: consider getting this value from the token registry (cleaner approach)
+        return 100000000;
+    }
+
+    // -------------------------------------------------------------
+    // Minter functions
     // -------------------------------------------------------------
 
     // mint allows user to create a specified token against already established
@@ -82,12 +125,12 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
         }
 
         // make sure the requested token can be minted
-        if (!IFantomDeFiTokenRegistry(fTokenRegistry).canMint(_token)) {
+        if (!IFantomDeFiTokenRegistry(tokenRegistryAddress()).canMint(_token)) {
             return ERR_MINTING_PROHIBITED;
         }
 
         // what is the value of the borrowed token?
-        uint256 tokenValue = IPriceOracle(fMintPriceOracle).getPrice(_token);
+        uint256 tokenValue = getPrice(_token);
         if (tokenValue == 0) {
             return ERR_NO_VALUE;
         }
@@ -112,7 +155,7 @@ contract FantomFMint is Ownable, ReentrancyGuard, FantomBalancePoolCore {
         feePool = feePool.add(fee);
 
         // add the fee to debt
-        debtAdd(msg.sender, fMintFeeToken, fee);
+        debtAdd(msg.sender, feeTokenAddress(), fee);
 
         // mint the requested balance of the ERC20 token
         // @NOTE: the fMint contract must have the minter privilege on the ERC20 token!
