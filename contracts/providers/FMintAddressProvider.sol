@@ -1,7 +1,7 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts/ownership/Ownable.sol";
-import "../interfaces/IFMintAddressProvider.sol";
+import "../interface/IFMintAddressProvider.sol";
 
 /**
 * This provides addresses to deployed FMint modules
@@ -9,9 +9,9 @@ import "../interfaces/IFMintAddressProvider.sol";
 * It's used to connects different modules to make the whole
 * FMint protocol live and work.
 *
-* @version 0.1.0
-* @license MIT
-* @author Fantom Foundation, Jiri Malek
+* version 0.1.0
+* license MIT
+* author Fantom Foundation, Jiri Malek
 */
 contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 
@@ -23,6 +23,7 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	bytes32 private constant MOD_REWARD_DISTRIBUTION = "reward_distribution";
 	bytes32 private constant MOD_TOKEN_REGISTRY = "token_registry";
 	bytes32 private constant MOD_ERC20_FEE_TOKEN = "erc20_fee_token";
+	bytes32 private constant MOD_ERC20_REWARD_POOL = "erc20_reward_pool";
 
 	// -----------------------------------------
 	// Address storage state and events
@@ -84,7 +85,7 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	 * getPriceOracle returns the address of the Price Oracle
 	 * aggregate contract used for the fLend DeFi functions.
 	 */
-	function getPriceOracle() public view returns (address) {
+	function getPriceOracle() external view returns (address) {
 		return getAddress(MOD_PRICE_ORACLE);
 	}
 
@@ -92,7 +93,7 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	 * setPriceOracle modifies the current current active price oracle aggregate
 	 * to the address specified.
 	 */
-	function setPriceOracle(address _addr) public onlyOwner {
+	function setPriceOracle(address _addr) external onlyOwner {
 		// make the change
 		setAddress(MOD_PRICE_ORACLE, _addr);
 
@@ -103,14 +104,14 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	/**
 	 * getTokenRegistry returns the address of the token registry contract.
 	 */
-	function getTokenRegistry() public view returns (address) {
+	function getTokenRegistry() external view returns (address) {
 		return getAddress(MOD_TOKEN_REGISTRY);
 	}
 
 	/**
 	 * setTokenRegistry modifies the address of the token registry contract.
 	 */
-	function setTokenRegistry(address _addr) public onlyOwner {
+	function setTokenRegistry(address _addr) external onlyOwner {
 		// make the change
 		setAddress(MOD_TOKEN_REGISTRY, _addr);
 
@@ -121,14 +122,14 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	/**
 	 * getFeeToken returns the address of the ERC20 token used for fees.
 	 */
-	function getFeeToken() public view returns (address) {
+	function getFeeToken() external view returns (address) {
 		return getAddress(MOD_ERC20_FEE_TOKEN);
 	}
 
 	/**
 	 * setFeeToken modifies the address of the ERC20 token used for fees.
 	 */
-	function setFeeToken(address _addr) public onlyOwner {
+	function setFeeToken(address _addr) external onlyOwner {
 		// make the change
 		setAddress(MOD_ERC20_FEE_TOKEN, _addr);
 
@@ -140,7 +141,7 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	 * getRewardDistribution returns the address
 	 * of the reward distribution contract.
 	 */
-	function getRewardDistribution() public view returns (address) {
+	function getRewardDistribution() external view returns (address) {
 		return getAddress(MOD_REWARD_DISTRIBUTION);
 	}
 
@@ -148,7 +149,21 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	 * setRewardDistribution modifies the address
 	 * of the reward distribution contract.
 	 */
-	function setRewardDistribution(address _addr) public onlyOwner {
+	function setRewardDistribution(address _addr) external onlyOwner {
 		setAddress(MOD_REWARD_DISTRIBUTION, _addr);
+	}
+
+	/**
+	 * getRewardPool returns the address of the reward pool contract.
+	 */
+	function getRewardPool() external view returns (address) {
+		return getAddress(MOD_ERC20_REWARD_POOL);
+	}
+
+	/**
+	 * setRewardPool modifies the address of the reward pool contract.
+	 */
+	function setRewardPool(address _addr) external onlyOwner {
+		setAddress(MOD_ERC20_REWARD_POOL, _addr);
 	}
 }
