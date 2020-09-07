@@ -9,7 +9,13 @@ contract FMintErrorCodes {
 	uint256 public constant ERR_NO_ERROR = 0x0;
 
 	// Error Code: Not authorized.
-	uint256 public constant ERR_NOT_AUTHORIZED = 0x0ff1;
+	uint256 public constant ERR_NOT_AUTHORIZED = 0xa00;
+
+	// Error Code: Rewards not ready.
+	uint256 public constant ERR_REWARDS_NOT_READY = 0xf01;
+
+	// Error Code: Zero rewards available.
+	uint256 public constant ERR_REWARDS_ZERO = 0xf02;
 
 	// Error Code: Zero value is not valid for the call.
 	uint256 public constant ERR_ZERO_AMOUNT = 0x1001;
