@@ -6,7 +6,4 @@ pragma solidity ^0.5.0;
 interface IFantomDeFiTokenRegistry {
 	// canMint informs if the given token can be minted in the fMint protocol.
     function canMint(address _token) external view returns (bool);
-
-    // getToken returns address of a special token for the given token type.
-    function getToken(uint _type) external view returns (address);
 }

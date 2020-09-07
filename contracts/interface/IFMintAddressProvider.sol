@@ -2,33 +2,35 @@ pragma solidity ^0.5.0;
 
 /**
 * This interface defines available functions of the FMint Address Provider contract.
-*
-* @version 0.1.0
-* @license MIT
-* @author Fantom Foundation, Jiri Malek
 */
 interface IFMintAddressProvider {
 	// getPriceOracle returns the address of the price oracle aggregate.
-	function getPriceOracle() public view returns (address);
+	function getPriceOracle() external view returns (address);
 
 	// setPriceOracle modifies the address of the price oracle aggregate.
-	function setPriceOracle(address _addr) public;
+	function setPriceOracle(address _addr) external;
 
 	// getTokenRegistry returns the address of the token registry contract.
-	function getTokenRegistry() public view returns (address);
+	function getTokenRegistry() external view returns (address);
 
 	// setTokenRegistry modifies the address of the token registry contract.
-	function setTokenRegistry(address _addr) public;
+	function setTokenRegistry(address _addr) external;
 
 	// getFeeToken returns the address of the ERC20 token used for fees.
-	function getFeeToken() public view returns (address);
+	function getFeeToken() external view returns (address);
 
 	// setFeeToken modifies the address of the ERC20 token used for fees.
-	function setFeeToken(address _addr) public;
+	function setFeeToken(address _addr) external;
 
 	// getRewardDistribution returns the address of the reward distribution contract.
-	function getRewardDistribution() public view returns (address);
+	function getRewardDistribution() external view returns (address);
 
 	// setRewardDistribution modifies the address of the reward distribution contract.
-	function setRewardDistribution(address _addr) public;
+	function setRewardDistribution(address _addr) external;
+
+	// getRewardPool returns the address of the reward pool contract.
+	function getRewardPool() external view returns (address);
+
+	// setRewardPool modifies the address of the reward pool contract.
+	function setRewardPool(address _addr) external;
 }

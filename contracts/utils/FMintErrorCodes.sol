@@ -8,6 +8,9 @@ contract FMintErrorCodes {
 	// Error Code: No error.
 	uint256 public constant ERR_NO_ERROR = 0x0;
 
+	// Error Code: Not authorized.
+	uint256 public constant ERR_NOT_AUTHORIZED = 0x0ff1;
+
 	// Error Code: Zero value is not valid for the call.
 	uint256 public constant ERR_ZERO_AMOUNT = 0x1001;
 
