@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./utils/FMintErrorCodes.sol";
+import "./FMintErrorCodes.sol";
 
 // FantomMintCore implements a balance pool of collateral and debt tokens
 // for the related Fantom DeFi contract. The collateral part allows notified rewards

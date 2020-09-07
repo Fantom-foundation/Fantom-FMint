@@ -11,8 +11,8 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interface/IPriceOracle.sol";
 import "./interface/IFMintAddressProvider.sol";
 import "./interface/IFantomDeFiTokenRegistry.sol";
-import "./utils/FMintErrorCodes.sol";
-import "./FantomMintCore.sol";
+import "./modules/FMintErrorCodes.sol";
+import "./modules/FantomMintCore.sol";
 
 // FantomMint implements the contract of core DeFi function
 // for minting tokens against a deposited collateral. The collateral

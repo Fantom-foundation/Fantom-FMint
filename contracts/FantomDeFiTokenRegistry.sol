@@ -1,7 +1,7 @@
 pragma solidity ^0.5.0;
 
-import "../interface/IFantomDeFiTokenRegistry.sol";
-import "../interface/IERC20Detailed.sol";
+import "./interface/IFantomDeFiTokenRegistry.sol";
+import "./interface/IERC20Detailed.sol";
 
 /**
 * This utility contract implements an update aware list of

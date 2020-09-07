@@ -8,10 +8,10 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./interface/IPriceOracle.sol";
-import "./utils/FMintErrorCodes.sol";
-import "./utils/FantomCollateralStorage.sol";
-import "./utils/FantomDebtStorage.sol";
+import "../interface/IPriceOracle.sol";
+import "./FMintErrorCodes.sol";
+import "./FantomCollateralStorage.sol";
+import "./FantomDebtStorage.sol";
 import "./FantomMintRewardManager.sol";
 
 // FantomMintCore implements a balance pool of collateral and debt tokens
