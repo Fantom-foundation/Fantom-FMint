@@ -148,7 +148,7 @@ web3.ftm.defaultAccount = account;
    // get the contract address (you may need to wait for the receipt to be available)
    adrProviderAddress = ftm.getTransactionReceipt(deploy.transactionHash).contractAddress;   
    ```
-8. Add *Price Oracle Proxy* and *Token Registry* to the *Address Provider*.
+8. Add *Price Oracle Proxy*, *Token Registry* and special *ERC20* tokens to the *Address Provider*.
     ```javascript
     // instantiate the address provider
     var adrProvider = web3.ftm.contract(adrProviderAbi).at(adrProviderAddress);
@@ -156,6 +156,10 @@ web3.ftm.defaultAccount = account;
     // assign addresses
     adrProvider.setPriceOracleProxy(priceProxy.address);
     adrProvider.setTokenRegistry(tokenRegistry.address);
+      
+    // add fee token and reward token to the address provider
+    adrProvider.setFeeToken(tokenUSD);
+    adrProvider.setRewardPool(tokenWFTM);
     ```
 
 9. Deploy **Reward Distribution** from this repository.
