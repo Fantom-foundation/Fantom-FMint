@@ -87,7 +87,7 @@ contract FantomMintCore is
         // for the current exchange rate and balance amounts including
         // given adjustments to both values as requested.
         uint256 cDebtValue = debtValueOf(_account).add(addDebt);
-        uint256 cCollateralValue = collateralBalanceOf(_account).sub(subCollateral);
+        uint256 cCollateralValue = collateralValueOf(_account).sub(subCollateral);
 
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
@@ -194,7 +194,7 @@ contract FantomMintCore is
         }
 
         // make sure the withdraw does not exceed collateral balance
-        if (_amount > _collateralBalance[msg.sender][_token]) {
+        if (_amount > collateralBalance[msg.sender][_token]) {
             return ERR_LOW_BALANCE;
         }
 
