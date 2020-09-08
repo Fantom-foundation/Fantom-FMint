@@ -122,7 +122,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
 
         // update the global reward distribution state before closing
         // the current epoch
-        rewardUpdate(address(0));
+        rewardUpdateGlobal();
 
         // if the previous reward epoch is about to end sooner than it's expected,
         // calculate remaining reward amount from the previous epoch
@@ -144,29 +144,30 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         return ERR_NO_ERROR;
     }
 
+    // rewardUpdateGlobal updates the stored reward distribution state.
+    function rewardUpdateGlobal() internal {
+        // calculate the current reward per token value globally
+        rewardLastPerToken = rewardPerToken();
+        rewardUpdated = rewardApplicableUntil();
+    }
+
     // rewardUpdate updates the stored reward distribution state
     // and the accumulated reward tokens status per account;
     // it is called on each principal token state change to reflect
     // the impact on reward distribution.
     function rewardUpdate(address _account) internal {
         // calculate the current reward per token value globally
-        rewardLastPerToken = rewardPerToken();
-        rewardUpdated = rewardApplicableUntil();
+        rewardUpdateGlobal();
 
-        // if this is an account state update, calculate rewards earned
-        // to this point (before the account collateral value changes)
-        // and stash those rewards
-        if (_account != address(0)) {
-            // is the account eligible to receive this reward at all?
-            if (rewardIsEligible(_account)) {
-                rewardStash[_account] = rewardEarned(_account);
-            }
-
-            // adjust paid part of the accumulated reward
-            // if the account is not eligible to receive reward up to this point
-            // we just skip it and they will never get it
-            rewardPerTokenPaid[_account] = rewardLastPerToken;
+        // is the account eligible to receive this reward at all?
+        if (rewardIsEligible(_account)) {
+            rewardStash[_account] = rewardEarned(_account);
         }
+
+        // adjust paid part of the accumulated reward
+        // if the account is not eligible to receive reward up to this point
+        // we just skip it and they will never get it
+        rewardPerTokenPaid[_account] = rewardLastPerToken;
     }
 
     // rewardApplicableUntil returns the time stamp of the latest time
