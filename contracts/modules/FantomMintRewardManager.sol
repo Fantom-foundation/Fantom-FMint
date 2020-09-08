@@ -31,14 +31,10 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // balance in the system.
     uint256 public constant rewardPerTokenDecimalsCorrection = 1e6;
 
-    // rewardClaimRatio4dec represents the collateral to debt ratio user has to have
-    // to be able to claim accumulated rewards.
+    // rewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
+    // to be able to receive rewards.
     // The value is kept in 4 decimals, e.g. value 50000 = 5.0
-    uint256 public constant rewardClaimRatio4dec = 50000;
-
-    // rewardClaimRatioDecimalsCorrection represents the the value to be used
-    // to adjust claim check decimals after applying ratio to a value calculation.
-    uint256 public constant rewardClaimRatioDecimalsCorrection = 10000;
+    uint256 public constant rewardEligibilityRatio4dec = 50000;
 
     // -------------------------------------------------------------
     // Rewards distribution related state
@@ -111,6 +107,9 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // rewardCanClaim (abstract) checks if the account can claim accumulated reward.
     function rewardCanClaim(address _account) public view returns (bool);
 
+    // rewardIsEligible (abstract) checks if the account is eligible to receive any reward.
+    function rewardIsEligible(address _account) internal view returns (bool);
+
     // rewardNotifyAmount is called by reward distribution management
     // to start new reward epoch with a new reward amount added to the reward pool.
     // NOTE: We do all the reward validity checks on the RewardDistribution contract,
@@ -158,7 +157,14 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         // to this point (before the account collateral value changes)
         // and stash those rewards
         if (_account != address(0)) {
-            rewardStash[_account] = rewardEarned(_account);
+            // is the account eligible to receive this reward at all?
+            if (rewardIsEligible(_account)) {
+                rewardStash[_account] = rewardEarned(_account);
+            }
+
+            // adjust paid part of the accumulated reward
+            // if the account is not eligible to receive reward up to this point
+            // we just skip it and they will never get it
             rewardPerTokenPaid[_account] = rewardLastPerToken;
         }
     }

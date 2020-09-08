@@ -82,7 +82,7 @@ contract FantomMintCore is
     // isCollateralSufficient checks if collateral value is sufficient
     // to cover the debt (collateral to debt ratio) after
     // predefined adjustments to the collateral and debt values.
-    function isCollateralSufficient(address _account, uint256 subCollateral, uint256 addDebt) internal view returns (bool) {
+    function isCollateralSufficient(address _account, uint256 subCollateral, uint256 addDebt, uint256 ratio) internal view returns (bool) {
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts including
         // given adjustments to both values as requested.
@@ -92,7 +92,7 @@ contract FantomMintCore is
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
-                                        .mul(collateralLowestDebtRatio4dec)
+                                        .mul(ratio)
                                         .div(collateralRatioDecimalsCorrection);
 
         // final collateral value must match the minimal value or exceed it
@@ -103,21 +103,26 @@ contract FantomMintCore is
     // without breaking collateral to debt ratio rule.
     function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after collateral decrease
-        return isCollateralSufficient(_account, tokenValue(_token, _amount), 0);
+        return isCollateralSufficient(_account, tokenValue(_token, _amount), 0, collateralLowestDebtRatio4dec);
     }
 
     // debtCanIncrease checks if the specified amount of debt can be added to the account
     // without breaking collateral to debt ratio rule.
     function debtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after debt increase
-        return isCollateralSufficient(_account, 0, tokenValue(_token, _amount));
+        return isCollateralSufficient(_account, 0, tokenValue(_token, _amount), collateralLowestDebtRatio4dec);
     }
 
     // rewardCanClaim checks if the account can claim accumulated rewards
     // by being on a high enough collateral to debt ratio.
     // Implements abstract function of the <FantomMintRewardManager>.
     function rewardCanClaim(address _account) public view returns (bool) {
-        return isCollateralSufficient(_account, 0, 0);
+        return isCollateralSufficient(_account, 0, 0, collateralLowestDebtRatio4dec);
+    }
+
+    // rewardIsEligible checks if the account is eligible to receive any reward.
+    function rewardIsEligible(address _account) internal view returns (bool) {
+        return isCollateralSufficient(_account, 0, 0, rewardEligibilityRatio4dec);
     }
 
     // --------------------------------------------------------------------------
