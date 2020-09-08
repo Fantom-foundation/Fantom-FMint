@@ -4,18 +4,21 @@ pragma solidity ^0.5.0;
  * FMintErrorCodes defines set of soft error codes
  * returned from fMint contract calls.
  */
-contract FMintErrorCodes {
+contract FantomMintErrorCodes {
 	// Error Code: No error.
 	uint256 public constant ERR_NO_ERROR = 0x0;
 
 	// Error Code: Not authorized.
 	uint256 public constant ERR_NOT_AUTHORIZED = 0xa00;
 
-	// Error Code: Rewards not ready.
-	uint256 public constant ERR_REWARDS_NOT_READY = 0xf01;
+	// Error Code: Rewards not ready to be distributed yet (call later).
+	uint256 public constant ERR_REWARDS_EARLY = 0xf01;
 
-	// Error Code: Zero rewards available.
-	uint256 public constant ERR_REWARDS_ZERO = 0xf02;
+	// Error Code: No rewards available for distribution.
+	uint256 public constant ERR_REWARDS_NONE = 0xf02;
+
+	// Error Code: Rewards pool depleted, no rewards to distribute.
+	uint256 public constant ERR_REWARDS_DEPLETED = 0xf03;
 
 	// Error Code: Zero value is not valid for the call.
 	uint256 public constant ERR_ZERO_AMOUNT = 0x1001;

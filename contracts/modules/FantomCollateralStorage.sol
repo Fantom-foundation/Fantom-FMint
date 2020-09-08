@@ -4,7 +4,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interfaces/IPriceOracle.sol";
 
 // FantomCollateralStorage<abstract> implements a collateral storage used
 // by the Fantom DeFi contract to track collateral accounts

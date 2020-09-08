@@ -3,12 +3,12 @@ pragma solidity ^0.5.0;
 /**
 * This interface defines available functions of the FMint Address Provider contract.
 */
-interface IFMintAddressProvider {
-	// getPriceOracle returns the address of the price oracle aggregate.
-	function getPriceOracle() external view returns (address);
+interface IFantomMintAddressProvider {
+	// getPriceOracleProxy returns the address of the price oracle aggregate.
+	function getPriceOracleProxy() external view returns (address);
 
-	// setPriceOracle modifies the address of the price oracle aggregate.
-	function setPriceOracle(address _addr) external;
+	// setPriceOracleProxy modifies the address of the price oracle aggregate.
+	function setPriceOracleProxy(address _addr) external;
 
 	// getTokenRegistry returns the address of the token registry contract.
 	function getTokenRegistry() external view returns (address);

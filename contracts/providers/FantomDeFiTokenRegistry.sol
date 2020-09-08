@@ -1,5 +1,6 @@
 pragma solidity ^0.5.0;
 
+import "@openzeppelin/contracts/ownership/Ownable.sol";
 import "../interfaces/IFantomDeFiTokenRegistry.sol";
 import "../interfaces/IERC20Detailed.sol";
 
@@ -11,11 +12,11 @@ import "../interfaces/IERC20Detailed.sol";
 * license MIT
 * author Fantom Foundation, Jiri Malek
 */
-contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
+contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
     // TokenInformation represents a single token handled by the registry.
     // The DeFi API uses this reference to do on-chain tokens tracking.
     struct TokenInformation {
-        address token;       // address of the token (unique identifier, ERCDetailed expected)
+        uint256 id;          // Internal id of the token (index starting from 1)
         string name;         // Name of the token
         string symbol;       // symbol of the token
         uint8 decimals;      // number of decimals of the token
@@ -29,22 +30,17 @@ contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
         bool canTrade;       // is this token available for direct fTrade?
     }
 
-    // owner represents the manager address of the registry.
-    address public owner;
+    // tokens is the mapping between the token address and it's detailed information.
+    mapping(address => TokenInformation) public tokens;
 
-    // tokens is the list of tokens handled by the registry.
-    TokenInformation[] public tokens;
+    // tokensList is the list of tokens handled by the registry.
+    address[] public tokensList;
 
     // TokenAdded event is emitted when a new token information is added to the contract.
-    event TokenAdded(address indexed token, string name, uint index);
+    event TokenAdded(address indexed token, string name, uint256 index);
 
     // TokenUpdated event is emitted when an existing token information is updated.
-    event TokenUpdated(address indexed token, uint index);
-
-    // install new registry instance
-    constructor() public {
-        owner = msg.sender;
-    }
+    event TokenUpdated(address indexed token, string name);
 
     // ---------------------------------
     // tokens registry view functions
@@ -52,44 +48,39 @@ contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
 
     // tokensCount returns the total number of tokens in the registry.
     function tokensCount() public view returns (uint256) {
-        return tokens.length;
-    }
-
-    // tokenIndex finds an index of a token in the tokens list by address; returns -1 if not found.
-    function tokenIndex(address _token) public view returns (int256) {
-        // loop the list and try to find the token
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (tokens[i].token == _token) {
-                return int256(i);
-            }
-        }
-        return - 1;
+        return tokensList.length;
     }
 
     // tokenPriceDecimals returns the number of decimal places a price
     // returned for the given token will be encoded to.
     function tokenPriceDecimals(address _token) public view returns (uint8) {
-        // try to find the token address in the tokens list
-        int256 ix = tokenIndex(_token);
-        if (0 > ix) {
-        	return 0;
-        }
-
-        // return the decimals registered
-        return tokens[uint256(ix)].priceDecimals;
+        return tokens[_token].priceDecimals;
     }
 
-    // canMint informs is the specified token can be minted in Fantom DeFi.
-	function canMint(address _token) external view returns (bool) {
-        // try to find the token address in the tokens list
-        int256 ix = tokenIndex(_token);
-        if (0 > ix) {
-        	return false;
-        }
+    // isActive informs if the specified token is active and can be used in DeFi protocols.
+    function isActive(address _token) external view returns (bool) {
+        return tokens[_token].isActive;
+    }
 
-        // return the decimals registered
-        return tokens[uint256(ix)].canMint;
+    // canDeposit informs if the specified token can be deposited to collateral pool.
+	function canDeposit(address _token) external view returns (bool) {
+        return tokens[_token].canDeposit;
 	}
+
+    // canMint informs if the specified token can be minted in Fantom DeFi.
+    function canMint(address _token) external view returns (bool) {
+        return tokens[_token].canMint;
+    }
+
+    // canBorrow informs if the specified token can be borrowed in Fantom DeFi.
+    function canBorrow(address _token) external view returns (bool) {
+        return tokens[_token].canBorrow;
+    }
+
+    // canTrade informs if the specified token can be traded directly in Fantom DeFi.
+    function canTrade(address _token) external view returns (bool) {
+        return tokens[_token].canTrade;
+    }
 
     // ---------------------------------
     // tokens management
@@ -106,23 +97,23 @@ contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
         bool _canMint,
         bool _canBorrow,
         bool _canTrade
-    ) external {
-        // make sure only owner can do this
-        require(msg.sender == owner, "access restricted");
-
-        // try to find the address
-        require(0 > tokenIndex(_token), "token already known");
+    ) external onlyOwner {
+        // make sure the token does not exist yet
+        require(0 == tokens[_token].id, "token already known");
 
         // pull decimals from the ERC20 token
         uint8 _decimals = IERC20Detailed(_token).decimals();
         require(_decimals > 0, "token decimals invalid");
 
+        // add the token address to the list
+        tokensList.push(_token);
+
         // get the token name
         string memory _name = IERC20Detailed(_token).name();
 
-        // add the token to the list
-        tokens.push(TokenInformation({
-            token : _token,
+        // create and store the token information
+        tokens[_token] = TokenInformation({
+            id : tokensList.length,
             name : _name,
             symbol : IERC20Detailed(_token).symbol(),
             decimals : _decimals,
@@ -134,11 +125,10 @@ contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
             canMint : _canMint,
             canBorrow : _canBorrow,
             canTrade : _canTrade
-            })
-        );
+        });
 
         // inform
-        emit TokenAdded(_token, _name, tokens.length - 1);
+        emit TokenAdded(_token, _name, tokensList.length - 1);
     }
 
     // updateToken modifies existing token in the reference contract.
@@ -152,25 +142,21 @@ contract FantomDeFiTokenRegistry is IFantomDeFiTokenRegistry {
         bool _canMint,
         bool _canBorrow,
         bool _canTrade
-    ) external {
-        // make sure only owner can do this
-        require(msg.sender == owner, "access restricted");
-
-        // try to find the address in the tokens list
-        int256 ix = tokenIndex(_token);
-        require(0 <= ix, "token not known");
+    ) external onlyOwner {
+        // make sure the token exists
+        require(0 != tokens[_token].id, "token unknown");
 
         // update token details in the contract
-        tokens[uint256(ix)].logo = _logo;
-        tokens[uint256(ix)].oracle = _oracle;
-        tokens[uint256(ix)].priceDecimals = _priceDecimals;
-        tokens[uint256(ix)].isActive = _isActive;
-        tokens[uint256(ix)].canDeposit = _canDeposit;
-        tokens[uint256(ix)].canDeposit = _canMint;
-        tokens[uint256(ix)].canBorrow = _canBorrow;
-        tokens[uint256(ix)].canTrade = _canTrade;
+        tokens[_token].logo = _logo;
+        tokens[_token].oracle = _oracle;
+        tokens[_token].priceDecimals = _priceDecimals;
+        tokens[_token].isActive = _isActive;
+        tokens[_token].canDeposit = _canDeposit;
+        tokens[_token].canDeposit = _canMint;
+        tokens[_token].canBorrow = _canBorrow;
+        tokens[_token].canTrade = _canTrade;
 
         // inform
-        emit TokenUpdated(_token, uint256(ix));
+        emit TokenUpdated(_token, tokens[_token].name);
     }
 }

@@ -4,24 +4,20 @@ import "@openzeppelin/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interfaces/IFMintAddressProvider.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../interfaces/IFantomMintAddressProvider.sol";
 import "../interfaces/IFantomMintRewardManager.sol";
-import "../dependencies/WrappedFtm.sol";
-import "../modules/FMintErrorCodes.sol";
+import "../modules/FantomMintErrorCodes.sol";
 
 // FantomMintRewardDistribution implements an fMint reward distribution
 // contract responsible for sending calculated amount of reward
 // to the fMint Reward Manager module (part of the FantomMint contract)
 // to be distributed.
-contract FantomMintRewardDistribution is Ownable, FMintErrorCodes, WrappedFtm
+contract FantomMintRewardDistribution is Ownable, FantomMintErrorCodes
 {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
-    using SafeERC20 for ERC20;
 
     // ---------------------------------------------------------------------
     // Reward distribution constants
@@ -29,7 +25,7 @@ contract FantomMintRewardDistribution is Ownable, FMintErrorCodes, WrappedFtm
 
     // MinRewardPushInterval represents the minimal amount of time between
     // two consecutive reward push calls.
-    uint256 public constant MinRewardPushInterval = 2 days;
+    uint256 public constant minRewardPushInterval = 2 days;
 
     // ---------------------------------------------------------------------
     // State variables
@@ -37,7 +33,7 @@ contract FantomMintRewardDistribution is Ownable, FMintErrorCodes, WrappedFtm
 
     // addressProvider represents the connection to other FMint related
     // contracts.
-    IFMintAddressProvider public addressProvider;
+    IFantomMintAddressProvider public addressProvider;
 
     // lastRewardPush represents the time stamp of the latest reward
     // distribution event.
@@ -57,9 +53,9 @@ contract FantomMintRewardDistribution is Ownable, FMintErrorCodes, WrappedFtm
     // ---------------------------------------------------------------------
 
     // create instance of the reward distribution
-    constructor (address _addressProvider) public WrappedFtm() {
+    constructor (address _addressProvider) public {
         // remember the address provider for the other protocol contracts connection
-        addressProvider = IFMintAddressProvider(_addressProvider);
+        addressProvider = IFantomMintAddressProvider(_addressProvider);
     }
 
     // ---------------------------------------------------------------------
@@ -72,22 +68,31 @@ contract FantomMintRewardDistribution is Ownable, FMintErrorCodes, WrappedFtm
     // NOTE: We don't restrict the call source since it doesn't matter who makes
     // the call, all the calculations are done inside.
     function pushReward() external returns(uint256) {
-    	// check if enough time passed from the last
-    	if (now < lastRewardPush.add(MinRewardPushInterval)) {
-    		return ERR_REWARDS_NOT_READY;
+    	// check if enough time passed from the last distribution
+    	if (now < lastRewardPush.add(minRewardPushInterval)) {
+    		return ERR_REWARDS_EARLY;
     	}
 
-    	// how much is in the reward pool?
+    	// how much is unlocked and waiting in the reward pool?
     	uint256 amount = now.sub(lastRewardPush).mul(rewardPerSecond);
     	if (amount == 0) {
-    		return ERR_REWARDS_ZERO;
+    		return ERR_REWARDS_NONE;
+    	}
+
+    	// get the manager address
+    	address manager = addressProvider.getFantomMint();
+
+    	// check the manager account balance on the reward pool
+    	// to make sure these rewards can be distributed
+    	if (amount > IERC20(addressProvider.getRewardPool()).balanceOf(manager)) {
+    		return ERR_REWARDS_DEPLETED;
     	}
 
     	// update the time stamp
     	lastRewardPush = now;
 
     	// notify the amount to the Reward Management
-    	return IFantomMintRewardManager(addressProvider.getFantomMint()).rewardNotifyAmount(amount);
+    	return IFantomMintRewardManager(manager).rewardNotifyAmount(amount);
     }
 
     // updateRate modifies the amount of reward unlocked per year

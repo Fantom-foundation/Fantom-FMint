@@ -6,10 +6,8 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interfaces/IPriceOracle.sol";
-import "./FMintErrorCodes.sol";
+import "./FantomMintErrorCodes.sol";
 import "./FantomCollateralStorage.sol";
 import "./FantomDebtStorage.sol";
 import "./FantomMintRewardManager.sol";
@@ -20,7 +18,7 @@ import "./FantomMintRewardManager.sol";
 contract FantomMintCore is
             Ownable,
             ReentrancyGuard,
-            FMintErrorCodes,
+            FantomMintErrorCodes,
             FantomCollateralStorage,
             FantomDebtStorage,
             FantomMintRewardManager
@@ -88,7 +86,7 @@ contract FantomMintCore is
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts including
         // given adjustments to both values as requested.
-        uint256 cDebtValue = debtBalanceOf(_account).add(addDebt);
+        uint256 cDebtValue = debtValueOf(_account).add(addDebt);
         uint256 cCollateralValue = collateralBalanceOf(_account).sub(subCollateral);
 
         // minCollateralValue is the minimal collateral value required for the current debt
@@ -130,13 +128,13 @@ contract FantomMintCore is
     // which yield a reward to entitled participants based
     // on their individual principal share.
     function principalBalance() public view returns (uint256) {
-        return debtBalance();
+        return debtTotal();
     }
 
     // principalBalanceOf returns the balance of principal token
     // which yield a reward share for this account.
     function principalBalanceOf(address _account) public view returns (uint256) {
-        return debtBalanceOf(_account);
+        return debtValueOf(_account);
     }
 
     // -------------------------------------------------------------

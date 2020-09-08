@@ -1,7 +1,7 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts/ownership/Ownable.sol";
-import "../interfaces/IFMintAddressProvider.sol";
+import "../interfaces/IFantomMintAddressProvider.sol";
 
 /**
 * This provides addresses to deployed FMint modules
@@ -13,14 +13,14 @@ import "../interfaces/IFMintAddressProvider.sol";
 * license MIT
 * author Fantom Foundation, Jiri Malek
 */
-contract FMintAddressProvider is Ownable, IFMintAddressProvider {
+contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 
 	// ----------------------------------------------
 	// Module identifiers used by the address storage
 	// ----------------------------------------------
 	//
 	bytes32 private constant MOD_FANTOM_MINT = "fantom_mint";
-	bytes32 private constant MOD_PRICE_ORACLE = "price_oracle_aggregate";
+	bytes32 private constant MOD_PRICE_ORACLE = "price_oracle_proxy";
 	bytes32 private constant MOD_REWARD_DISTRIBUTION = "reward_distribution";
 	bytes32 private constant MOD_TOKEN_REGISTRY = "token_registry";
 	bytes32 private constant MOD_ERC20_FEE_TOKEN = "erc20_fee_token";
@@ -83,18 +83,18 @@ contract FMintAddressProvider is Ownable, IFMintAddressProvider {
 	// -----------------------------------------
 
 	/**
-	 * getPriceOracle returns the address of the Price Oracle
+	 * getPriceOracleProxy returns the address of the Price Oracle
 	 * aggregate contract used for the fLend DeFi functions.
 	 */
-	function getPriceOracle() external view returns (address) {
+	function getPriceOracleProxy() external view returns (address) {
 		return getAddress(MOD_PRICE_ORACLE);
 	}
 
 	/**
-	 * setPriceOracle modifies the current current active price oracle aggregate
+	 * setPriceOracleProxy modifies the current current active price oracle aggregate
 	 * to the address specified.
 	 */
-	function setPriceOracle(address _addr) external onlyOwner {
+	function setPriceOracleProxy(address _addr) external onlyOwner {
 		// make the change
 		setAddress(MOD_PRICE_ORACLE, _addr);
 

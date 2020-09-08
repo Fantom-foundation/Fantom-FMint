@@ -8,10 +8,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./interfaces/IPriceOracle.sol";
-import "./interfaces/IFMintAddressProvider.sol";
+import "./interfaces/IPriceOracleProxy.sol";
+import "./interfaces/IFantomMintAddressProvider.sol";
 import "./interfaces/IFantomDeFiTokenRegistry.sol";
-import "./modules/FMintErrorCodes.sol";
+import "./modules/FantomMintErrorCodes.sol";
 import "./modules/FantomMintCore.sol";
 
 // FantomMint implements the contract of core DeFi function
@@ -42,7 +42,7 @@ contract FantomMint is Ownable, ReentrancyGuard, FantomMintCore {
 
     // addressProvider represents the connection to other FMint related
     // contracts.
-    IFMintAddressProvider public addressProvider;
+    IFantomMintAddressProvider public addressProvider;
 
     // fMintPriceDigitsCorrection represents the correction required
     // for FTM/ERC20 (18 digits) to another 18 digits number exchange
@@ -62,7 +62,7 @@ contract FantomMint is Ownable, ReentrancyGuard, FantomMintCore {
     // constructor initializes a new instance of the fMint module.
     constructor(address _addressProvider) public {
         // remember the address provider connecting satellite contracts to the minter
-        addressProvider = IFMintAddressProvider(_addressProvider);
+        addressProvider = IFantomMintAddressProvider(_addressProvider);
     }
 
     // -------------------------------------------------------------
@@ -99,7 +99,7 @@ contract FantomMint is Ownable, ReentrancyGuard, FantomMintCore {
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256) {
         // use linked price oracle aggregate to get the token exchange price
-        return IPriceOracle(addressProvider.getPriceOracle()).getPrice(_token);
+        return IPriceOracleProxy(addressProvider.getPriceOracleProxy()).getPrice(_token);
     }
 
     // getPriceDigitsCorrection (abstract) returns the correction to the calculated
@@ -179,7 +179,7 @@ contract FantomMint is Ownable, ReentrancyGuard, FantomMintCore {
         }
 
         // make sure there is enough debt on the token specified (if any at all)
-        if (_amount > _debtBalance[msg.sender][_token]) {
+        if (_amount > debtBalance[msg.sender][_token]) {
             return ERR_LOW_BALANCE;
         }
 
