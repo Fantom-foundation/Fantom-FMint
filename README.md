@@ -205,7 +205,6 @@ web3.ftm.defaultAccount = account;
     });
     
     // get the contract address (you may need to wait for the receipt to be available)
-    // "0x6be2992441238ebee52f551ce8197c8a65137b31"
     fMintAddress = ftm.getTransactionReceipt(deploy.transactionHash).contractAddress;
     
     // instantiate the fMint contract
