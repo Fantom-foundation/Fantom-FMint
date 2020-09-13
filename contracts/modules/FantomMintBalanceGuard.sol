@@ -3,16 +3,15 @@ pragma solidity ^0.5.0;
 import "@openzeppelin/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/IFantomMintBalanceGuard.sol";
 import "./FantomMintErrorCodes.sol";
 
-// FantomMintCore implements a calculation of different rate steps
+// FantomMintBalanceGuard implements a calculation of different rate steps
 // between collateral and debt pools to ensure healthy accounts.
-contract FantomMintBalanceGuard is Ownable, ReentrancyGuard, FantomMintErrorCodes, IFantomMintBalanceGuard
+contract FantomMintBalanceGuard is Ownable, FantomMintErrorCodes, IFantomMintBalanceGuard
 {
     // define used libs
     using SafeMath for uint256;
