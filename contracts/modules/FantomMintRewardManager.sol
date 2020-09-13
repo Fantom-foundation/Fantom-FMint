@@ -31,11 +31,6 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // balance in the system.
     uint256 public constant rewardPerTokenDecimalsCorrection = 1e6;
 
-    // rewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
-    // to be able to receive rewards.
-    // The value is kept in 4 decimals, e.g. value 50000 = 5.0
-    uint256 public constant rewardEligibilityRatio4dec = 50000;
-
     // -------------------------------------------------------------
     // Rewards distribution related state
     // -------------------------------------------------------------
@@ -81,71 +76,68 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     event RewardPaid(address indexed user, uint256 reward);
 
     // -------------------------------------------------------------
-    // Principal balance access (abstract)
+    // User access to earned rewards
     // -------------------------------------------------------------
 
-    // principalBalance (abstract) returns the total balance of principal token
-    // which yield a reward to entitled participants based
-    // on their individual principal share.
-    function principalBalance() public view returns (uint256);
+    // mustRewardClaim (wrapper function) tries to claim the reward.
+    // It reverts the transaction on failure.
+    function mustRewardClaim() public {
+        // try to claim
+        uint256 result = rewardClaim();
 
-    // principalBalanceOf (abstract) returns the balance of principal token
-    // which yield a reward share for this account.
-    function principalBalanceOf(address _account) public view returns (uint256);
+        // no reward condition
+        require(result != ERR_NO_REWARD, "no rewards earned");
 
-    // -------------------------------------------------------------
-    // Reward management functions
-    // -------------------------------------------------------------
+        // claim rejected condition
+        require(result != ERR_REWARD_CLAIM_REJECTED, "reward claim rejected");
+    }
 
-    // rewardPoolAddress returns address of the reward tokens pool.
-    // The pool is used to settle rewards to eligible accounts.
-    function rewardPoolAddress() public view returns (address);
+    // rewardClaim transfers earned rewards to the caller account address
+    function rewardClaim() public returns (uint256) {
+        // update the reward distribution for the account
+        rewardUpdate(msg.sender);
 
-    // rewardDistributionAddress returns address of the reward distribution contract.
-    function rewardDistributionAddress() public view returns (address);
+        // how many reward tokens were earned by the account?
+        uint256 reward = rewardStash[msg.sender];
 
-    // rewardCanClaim (abstract) checks if the account can claim accumulated reward.
-    function rewardCanClaim(address _account) public view returns (bool);
+        // @NOTE: Pulling this from the rewardEarned() invokes system-wide
+        // collateral balance calculation again (through rewardPerToken) burning gas;
+        // All the earned tokens should be in the stash already after
+        // the reward update call above.
 
-    // rewardIsEligible (abstract) checks if the account is eligible to receive any reward.
-    function rewardIsEligible(address _account) internal view returns (bool);
-
-    // rewardNotifyAmount is called by reward distribution management
-    // to start new reward epoch with a new reward amount added to the reward pool.
-    // NOTE: We do all the reward validity checks on the RewardDistribution contract,
-    // so we expect to receive only valid and correct reward data here.
-    function rewardNotifyAmount(uint256 reward) external returns (uint256) {
-        // make sure this is done by reward distribution contract
-        if (msg.sender != rewardDistributionAddress()) {
-            return ERR_NOT_AUTHORIZED;
+        // are there any at all?
+        if (0 == reward) {
+            return ERR_NO_REWARD;
         }
 
-        // update the global reward distribution state before closing
-        // the current epoch
-        rewardUpdateGlobal();
-
-        // if the previous reward epoch is about to end sooner than it's expected,
-        // calculate remaining reward amount from the previous epoch
-        // and add it to the notified reward pushing the leftover to the new epoch
-        if (now < rewardEpochEnds) {
-            uint256 leftover = rewardEpochEnds.sub(now).mul(rewardRate);
-            reward = reward.add(leftover);
+        // check if the account can claim
+        // @NOTE: We may not need this check if the actual amount of rewards will
+        // be calculated from an excessive amount of collateral compared to debt
+        // including certain ratio (e.g. debt value * 300% < collateral value)
+        // @see rewardEarned() call above
+        if (!rewardCanClaim(msg.sender)) {
+            return ERR_REWARD_CLAIM_REJECTED;
         }
 
-        // start new reward epoch with the new reward rate
-        rewardRate = reward.div(rewardEpochLength);
-        rewardEpochEnds = now.add(rewardEpochLength);
-        rewardUpdated = now;
+        // reset accumulated rewards on the account
+        rewardStash[msg.sender] = 0;
 
-        // notify new epoch with the updated rewards rate
-        emit RewardAdded(reward);
+        // transfer earned reward tokens to the caller
+        ERC20(rewardTokenAddress()).safeTransfer(msg.sender, reward);
 
-        // we are done
+        // notify about the action
+        emit RewardPaid(msg.sender, reward);
+
+        // claim successful
         return ERR_NO_ERROR;
     }
 
+    // -------------------------------------------------------------
+    // Reward management and calculation functions
+    // -------------------------------------------------------------
+
     // rewardUpdateGlobal updates the stored reward distribution state.
-    function rewardUpdateGlobal() internal {
+    function rewardUpdateGlobal() public {
         // calculate the current reward per token value globally
         rewardLastPerToken = rewardPerToken();
         rewardUpdated = rewardApplicableUntil();
@@ -155,7 +147,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // and the accumulated reward tokens status per account;
     // it is called on each principal token state change to reflect
     // the impact on reward distribution.
-    function rewardUpdate(address _account) internal {
+    function rewardUpdate(address _account) public {
         // calculate the current reward per token value globally
         rewardUpdateGlobal();
 
@@ -216,43 +208,50 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
                 .add(rewardStash[_account]);
     }
 
-    // rewardClaim transfers earned rewards to the caller account address
-    function rewardClaim() public returns (uint256) {
-        // update the reward distribution for the account
-        rewardUpdate(msg.sender);
+    // rewardNotifyAmount is called by reward distribution management contract
+    // to start new reward epoch with a new reward amount unlocked in the reward pool.
+    // NOTE: We do all the reward validity checks in the RewardDistribution contract,
+    // so we expect to receive only valid and correct reward amount here.
+    function rewardNotifyAmount(uint256 reward) internal {
+        // update the global reward distribution state before closing the current epoch
+        rewardUpdateGlobal();
 
-        // how many reward tokens were earned by the account?
-        uint256 reward = rewardStash[msg.sender];
-
-        // @NOTE: Pulling this from the rewardEarned() invokes system-wide
-        // collateral balance calculation again (through rewardPerToken) burning gas;
-        // All the earned tokens should be in the stash already after
-        // the reward update call above.
-
-        // are there any at all?
-        if (0 == reward) {
-            return ERR_NO_REWARD;
+        // if the previous reward epoch is about to end sooner than it's expected,
+        // calculate remaining reward amount from the previous epoch
+        // and add it to the notified reward pushing the leftover to the new epoch
+        if (now < rewardEpochEnds) {
+            uint256 leftover = rewardEpochEnds.sub(now).mul(rewardRate);
+            reward = reward.add(leftover);
         }
 
-        // check if the account can claim
-        // @NOTE: We may not need this check if the actual amount of rewards will
-        // be calculated from an excessive amount of collateral compared to debt
-        // including certain ratio (e.g. debt value * 300% < collateral value)
-        // @see rewardEarned() call above
-        if (!rewardCanClaim(msg.sender)) {
-            return ERR_REWARD_CLAIM_REJECTED;
-        }
+        // start new reward epoch with the new reward rate
+        rewardRate = reward.div(rewardEpochLength);
+        rewardEpochEnds = now.add(rewardEpochLength);
+        rewardUpdated = now;
 
-        // reset accumulated rewards on the account
-        rewardStash[msg.sender] = 0;
-
-        // transfer earned reward tokens to the caller
-        ERC20(rewardPoolAddress()).safeTransfer(msg.sender, reward);
-
-        // notify about the action
-        emit RewardPaid(msg.sender, reward);
-
-        // claim successful
-        return ERR_NO_ERROR;
+        // notify new epoch with the updated rewards rate
+        emit RewardAdded(reward);
     }
+
+    // --------------------------------------------------------------
+    // Abstract functions used for rewards calculation and management
+    // --------------------------------------------------------------
+
+    // principalBalance (abstract) returns the total balance of principal token
+    // which yield a reward to entitled participants based
+    // on their individual principal share.
+    function principalBalance() public view returns (uint256);
+
+    // principalBalanceOf (abstract) returns the balance of principal token
+    // which yield a reward share for this account.
+    function principalBalanceOf(address _account) public view returns (uint256);
+
+    // rewardTokenAddress returns address of the reward ERC20 token.
+    function rewardTokenAddress() public view returns (address);
+
+    // rewardCanClaim (abstract) checks if the account can claim accumulated reward.
+    function rewardCanClaim(address _account) public view returns (bool);
+
+    // rewardIsEligible (abstract) checks if the account is eligible to receive any reward.
+    function rewardIsEligible(address _account) internal view returns (bool);
 }
