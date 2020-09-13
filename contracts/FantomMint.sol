@@ -1,8 +1,6 @@
 pragma solidity ^0.5.0;
 
-import "@openzeppelin/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -22,7 +20,7 @@ import "./modules/FantomMintDebt.sol";
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
 // of any fee.
-contract FantomMint is Ownable, FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt {
+contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
