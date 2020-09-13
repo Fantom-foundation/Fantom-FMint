@@ -35,7 +35,8 @@ contract FantomMintDebt is FantomMintErrorCodes
     uint256 public constant fMintFeeDigitsCorrection = 10000;
 
     // fMintLowestAmountAllowed represents the minimal amount of tokens allowed to be minted.
-    uint256 public constant fMintLowestAmountAllowed = 10*18;
+    // NOTE: We may want to use a different minimal amount based on token.
+    uint256 public constant fMintLowestAmountAllowed = 10**8;
 
     // -------------------------------------------------------------
     // Emitted events definition
