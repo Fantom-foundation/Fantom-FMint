@@ -51,34 +51,34 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         return tokensList.length;
     }
 
-    // tokenPriceDecimals returns the number of decimal places a price
+    // priceDecimals returns the number of decimal places a price
     // returned for the given token will be encoded to.
-    function tokenPriceDecimals(address _token) public view returns (uint8) {
+    function priceDecimals(address _token) public view returns (uint8) {
         return tokens[_token].priceDecimals;
     }
 
     // isActive informs if the specified token is active and can be used in DeFi protocols.
-    function isActive(address _token) external view returns (bool) {
+    function isActive(address _token) public view returns (bool) {
         return tokens[_token].isActive;
     }
 
     // canDeposit informs if the specified token can be deposited to collateral pool.
-	function canDeposit(address _token) external view returns (bool) {
+	function canDeposit(address _token) public view returns (bool) {
         return tokens[_token].canDeposit;
 	}
 
     // canMint informs if the specified token can be minted in Fantom DeFi.
-    function canMint(address _token) external view returns (bool) {
+    function canMint(address _token) public view returns (bool) {
         return tokens[_token].canMint;
     }
 
     // canBorrow informs if the specified token can be borrowed in Fantom DeFi.
-    function canBorrow(address _token) external view returns (bool) {
+    function canBorrow(address _token) public view returns (bool) {
         return tokens[_token].canBorrow;
     }
 
     // canTrade informs if the specified token can be traded directly in Fantom DeFi.
-    function canTrade(address _token) external view returns (bool) {
+    function canTrade(address _token) public view returns (bool) {
         return tokens[_token].canTrade;
     }
 

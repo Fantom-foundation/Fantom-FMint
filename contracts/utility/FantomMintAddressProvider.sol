@@ -20,11 +20,13 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	// ----------------------------------------------
 	//
 	bytes32 private constant MOD_FANTOM_MINT = "fantom_mint";
+	bytes32 private constant MOD_COLLATERAL_POOL = "collateral_pool";
+	bytes32 private constant MOD_DEBT_POOL = "debt_pool";
 	bytes32 private constant MOD_PRICE_ORACLE = "price_oracle_proxy";
 	bytes32 private constant MOD_REWARD_DISTRIBUTION = "reward_distribution";
 	bytes32 private constant MOD_TOKEN_REGISTRY = "token_registry";
 	bytes32 private constant MOD_ERC20_FEE_TOKEN = "erc20_fee_token";
-	bytes32 private constant MOD_ERC20_REWARD_POOL = "erc20_reward_pool";
+	bytes32 private constant MOD_ERC20_REWARD_TOKEN = "erc20_reward_token";
 
 	// -----------------------------------------
 	// Address storage state and events
@@ -34,6 +36,10 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	// identified their common names.
 	mapping(bytes32 => address) private _addressPool;
 
+	// MinterChanged even is emitted when
+	// a new fMint Minter address is set.
+	event MinterChanged(address newAddress);
+
 	// PriceOracleChanged even is emitted when
 	// a new Price Oracle address is set.
 	event PriceOracleChanged(address newAddress);
@@ -42,6 +48,10 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	// a new Reward Distribution address is set.
 	event RewardDistributionChanged(address newAddress);
 
+	// RewardTokenChanged even is emitted when
+	// a new reward ERC20 token address is set.
+	event RewardTokenChanged(address newAddress);
+
 	// TokenRegistryChanged even is emitted when
 	// a new Token Registry address is set.
 	event TokenRegistryChanged(address newAddress);
@@ -49,6 +59,14 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	// FeeTokenChanged even is emitted when
 	// a new Fee Token address is set.
 	event FeeTokenChanged(address newAddress);
+
+	// CollateralPoolChanged even is emitted when
+	// a new Collateral Pool address is set.
+	event CollateralPoolChanged(address newAddress);
+
+	// DebtPoolChanged even is emitted when
+	// a new Debt Pool address is set.
+	event DebtPoolChanged(address newAddress);
 
 	// --------------------------------------------
 	// General address storage management functions
@@ -86,7 +104,7 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	 * getPriceOracleProxy returns the address of the Price Oracle
 	 * aggregate contract used for the fLend DeFi functions.
 	 */
-	function getPriceOracleProxy() external view returns (address) {
+	function getPriceOracleProxy() public view returns (address) {
 		return getAddress(MOD_PRICE_ORACLE);
 	}
 
@@ -94,7 +112,7 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	 * setPriceOracleProxy modifies the current current active price oracle aggregate
 	 * to the address specified.
 	 */
-	function setPriceOracleProxy(address _addr) external onlyOwner {
+	function setPriceOracleProxy(address _addr) public onlyOwner {
 		// make the change
 		setAddress(MOD_PRICE_ORACLE, _addr);
 
@@ -105,14 +123,14 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	/**
 	 * getTokenRegistry returns the address of the token registry contract.
 	 */
-	function getTokenRegistry() external view returns (address) {
+	function getTokenRegistry() public view returns (address) {
 		return getAddress(MOD_TOKEN_REGISTRY);
 	}
 
 	/**
 	 * setTokenRegistry modifies the address of the token registry contract.
 	 */
-	function setTokenRegistry(address _addr) external onlyOwner {
+	function setTokenRegistry(address _addr) public onlyOwner {
 		// make the change
 		setAddress(MOD_TOKEN_REGISTRY, _addr);
 
@@ -123,14 +141,14 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	/**
 	 * getFeeToken returns the address of the ERC20 token used for fees.
 	 */
-	function getFeeToken() external view returns (address) {
+	function getFeeToken() public view returns (address) {
 		return getAddress(MOD_ERC20_FEE_TOKEN);
 	}
 
 	/**
 	 * setFeeToken modifies the address of the ERC20 token used for fees.
 	 */
-	function setFeeToken(address _addr) external onlyOwner {
+	function setFeeToken(address _addr) public onlyOwner {
 		// make the change
 		setAddress(MOD_ERC20_FEE_TOKEN, _addr);
 
@@ -142,7 +160,7 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	 * getRewardDistribution returns the address
 	 * of the reward distribution contract.
 	 */
-	function getRewardDistribution() external view returns (address) {
+	function getRewardDistribution() public view returns (address) {
 		return getAddress(MOD_REWARD_DISTRIBUTION);
 	}
 
@@ -150,33 +168,83 @@ contract FantomMintAddressProvider is Ownable, IFantomMintAddressProvider {
 	 * setRewardDistribution modifies the address
 	 * of the reward distribution contract.
 	 */
-	function setRewardDistribution(address _addr) external onlyOwner {
+	function setRewardDistribution(address _addr) public onlyOwner {
+		// make the change
 		setAddress(MOD_REWARD_DISTRIBUTION, _addr);
+
+		// inform listeners and seekers about the change
+		emit RewardDistributionChanged(_addr);
 	}
 
 	/**
 	 * getRewardPool returns the address of the reward pool contract.
 	 */
-	function getRewardPool() external view returns (address) {
-		return getAddress(MOD_ERC20_REWARD_POOL);
+	function getRewardToken() public view returns (address) {
+		return getAddress(MOD_ERC20_REWARD_TOKEN);
 	}
 
 	/**
 	 * setRewardPool modifies the address of the reward pool contract.
 	 */
-	function setRewardPool(address _addr) external onlyOwner {
-		setAddress(MOD_ERC20_REWARD_POOL, _addr);
+	function setRewardToken(address _addr) public onlyOwner {
+		// make the change
+		setAddress(MOD_ERC20_REWARD_TOKEN, _addr);
+
+		// inform listeners and seekers about the change
+		emit RewardTokenChanged(_addr);
 	}
 
 	/**
 	 * getFantomMint returns the address of the Fantom fMint contract.
 	 */
-	function getFantomMint() external view returns (address){
+	function getFantomMint() public view returns (address) {
 		return getAddress(MOD_FANTOM_MINT);
 	}
 
-	// setFantomMint modifies the address of the Fantom fMint contract.
-	function setFantomMint(address _addr) external onlyOwner {
+	/**
+	 * setFantomMint modifies the address of the Fantom fMint contract.
+	 */
+	function setFantomMint(address _addr) public onlyOwner {
+		// make the change
 		setAddress(MOD_FANTOM_MINT, _addr);
+
+		// inform listeners and seekers about the change
+		emit MinterChanged(_addr);
+	}
+
+	/**
+	 * getCollateralPool returns the address of the collateral pool contract.
+	 */
+	function getCollateralPool() public view returns (address) {
+		return getAddress(MOD_COLLATERAL_POOL);
+	}
+
+	/**
+	 * setCollateralPool modifies the address of the collateral pool contract.
+	 */
+	function setCollateralPool(address _addr) public onlyOwner {
+		// make the change
+		setAddress(MOD_COLLATERAL_POOL, _addr);
+
+		// inform listeners and seekers about the change
+		emit CollateralPoolChanged(_addr);
+	}
+
+	/**
+	 * getDebtPool returns the address of the debt pool contract.
+	 */
+	function getDebtPool() public view returns (address) {
+		return getAddress(MOD_DEBT_POOL);
+	}
+
+	/**
+	 * setDebtPool modifies the address of the debt pool contract.
+	 */
+	function setDebtPool(address _addr) public onlyOwner {
+		// make the change
+		setAddress(MOD_DEBT_POOL, _addr);
+
+		// inform listeners and seekers about the change
+		emit DebtPoolChanged(_addr);
 	}
 }

@@ -5,35 +5,44 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "./interfaces/IPriceOracleProxy.sol";
-import "./interfaces/IFantomMintAddressProvider.sol";
-import "./interfaces/IFantomDeFiTokenRegistry.sol";
+import "../interfaces/IFantomDeFiTokenStorage.sol";
+import "../interfaces/IPriceOracleProxy.sol";
+import "../interfaces/IFantomMintAddressProvider.sol";
+import "../interfaces/IFantomDeFiTokenRegistry.sol";
 
 // FantomDeFiTokenStorage implements a token pool used by the Fantom
 // DeFi fMint protocol to track collateral and debt.
-contract FantomDeFiTokenStorage {
+contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
+{
     // define used libs
     using SafeMath for uint256;
     using Address for address;
     using SafeERC20 for ERC20;
 
     // -------------------------------------------------------------
-    // Contract control
+    // Contract initialization, behavior and access control
     // -------------------------------------------------------------
 
     // addressProvider represents the connection to other fMint contracts.
     IFantomMintAddressProvider public addressProvider;
 
-    // the lowest possible amount allowed to be added
-    uint256 public addMinAllowed = 10**18;
-
-    // the highest possible amount allowed to be added
-    uint256 public addMaxAllowed = 10**26;
-
     // constructor initializes a new instance of the module.
     constructor(address _addressProvider) public {
         // remember the address provider connecting contracts together
         addressProvider = IFantomMintAddressProvider(_addressProvider);
+    }
+
+    // isMinter verifies if the incoming request comes from the master
+    // fMint minter contract.
+    function isMinter(address _account) public view returns (bool) {
+        return _account == addressProvider.getFantomMint();
+    }
+
+    // onlyMinter modifier controls access to sensitive functions
+    // to allow only calls from fMint Minter contract.
+    modifier onlyMinter() {
+        require(isMinter(msg.sender), "token storage access restricted");
+        _;
     }
 
     // -------------------------------------------------------------
@@ -61,9 +70,10 @@ contract FantomDeFiTokenStorage {
             return 0;
         }
 
-        // get the token price and
+        // get the token price and price digits correction
+        // NOTE: We may want to cache price decimals to save some gas on subsequent calls.
         uint256 price = IPriceOracleProxy(addressProvider.getPriceOracleProxy()).getPrice(_token);
-        uint256 priceDigitsCorrection = 10**IFantomDeFiTokenRegistry(addressProvider.tokenRegistryAddress()).tokenPriceDecimals(_token);
+        uint256 priceDigitsCorrection = 10**uint256(IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
 
         // calculate the value
         return _amount.mul(price).div(priceDigitsCorrection);
@@ -84,12 +94,17 @@ contract FantomDeFiTokenStorage {
     // valueOf returns the value of current balance of specified account.
     function valueOf(address _account) public view returns (uint256 value) {
         // loop all registered debt tokens
-        for (uint i = 0; i < debtTokens.length; i++) {
+        for (uint i = 0; i < tokens.length; i++) {
             // advance the result by the value of current token balance of this token
-            value = value.add(tokenValue(debtTokens[i], debtBalance[_account][debtTokens[i]]));
+            value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
         }
 
         return value;
+    }
+
+    // balanceOf returns the balance of the given token on the given account.
+    function balanceOf(address _account, address _token) public view returns (uint256) {
+        return balance[_account][_token];
     }
 
     // -------------------------------------------------------------
@@ -97,12 +112,8 @@ contract FantomDeFiTokenStorage {
     // -------------------------------------------------------------
 
     // add adds specified amount of tokens to given account
-    // debt (e.g. borrow/mint) and updates the total supply references.
-    function add(address _account, address _token, uint256 _amount) internal {
-        // make sure the amount is within the allowed range
-        // this should mitigates the dust manipulation problems
-        require(_amount >= addMinAllowed && _amount <= addMaxAllowed, "amount out of allowed range");
-
+    // and updates the total supply references.
+    function add(address _account, address _token, uint256 _amount) public onlyMinter {
         // update the token balance of the account
         balance[_account][_token] = balance[_account][_token].add(_amount);
 
@@ -115,10 +126,7 @@ contract FantomDeFiTokenStorage {
 
     // sub removes specified amount of tokens from given account
     // and updates the total balance references.
-    function sub(address _account, address _token, uint256 _amount) internal {
-        // make sure the amount is within the allowed range
-        require(_amount > 0, "non-zero amount required");
-
+    function sub(address _account, address _token, uint256 _amount) public onlyMinter {
         // update the balance of the account
         balance[_account][_token] = balance[_account][_token].sub(_amount);
 
