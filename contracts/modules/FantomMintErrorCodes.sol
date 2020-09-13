@@ -21,7 +21,10 @@ contract FantomMintErrorCodes {
 	uint256 public constant ERR_REWARDS_DEPLETED = 0xf03;
 
 	// Error Code: Zero value is not valid for the call.
-	uint256 public constant ERR_ZERO_AMOUNT = 0x1001;
+	uint256 public constant ERR_ZERO_AMOUNT = 0x1000;
+
+	// Error Code: Amount is too low to be allowed.
+	uint256 public constant ERR_LOW_AMOUNT = 0x1001;
 
 	// Error Code: Account balance too low to continue.
 	uint256 public constant ERR_LOW_BALANCE = 0x1002;
