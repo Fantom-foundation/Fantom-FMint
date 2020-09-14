@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./interfaces/IPriceOracleProxy.sol";
 import "./interfaces/IFantomMintAddressProvider.sol";
-import "./interfaces/IFantomDeFiTokenRegistry.sol";
+import "./interfaces/IFantomMintTokenRegistry.sol";
 import "./interfaces/IFantomDeFiTokenStorage.sol";
 import "./interfaces/IFantomMintRewardManager.sol";
 import "./modules/FantomMintErrorCodes.sol";
@@ -69,9 +69,14 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         return addressProvider.getFeeToken();
     }
 
-    // canMint informs if the given token can be minted in the fMint protocol.
+    // canDeposit checks if the given token can be deposited to the collateral pool.
+    function canDeposit(address _token) public view returns (bool) {
+        return IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).canDeposit(_token);
+    }
+
+    // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool) {
-        return IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).canMint(_token);
+        return IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).canMint(_token);
     }
 
     // checkCollateralCanDecrease checks if the specified amount of collateral can be removed from account
@@ -113,7 +118,7 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     function getPriceDigitsCorrection(address _token) public view returns (uint256) {
         // get the value from the token registry
         // consider caching it until future protoSync() to save some gas from external call
-        return 10**uint256(IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
+        return 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
     }
 
     // tokenValue calculates the value of the given amount of the token specified.

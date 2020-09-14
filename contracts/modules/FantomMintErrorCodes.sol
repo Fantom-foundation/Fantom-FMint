@@ -38,18 +38,21 @@ contract FantomMintErrorCodes {
 	// Error Code: Collateral is below enforced limit.
 	uint256 public constant ERR_LOW_COLLATERAL_RATIO = 0x1005;
 
+	// Error Code: Requested token not available for collateral.
+	uint256 public constant ERR_DEPOSIT_PROHIBITED = 0x1006;
+
 	// Error Code: Requested token not available for minting.
-	uint256 public constant ERR_MINTING_PROHIBITED = 0x1006;
+	uint256 public constant ERR_MINTING_PROHIBITED = 0x1007;
 
 	// Error Code: Requested token has no known value.
-	uint256 public constant ERR_NO_VALUE = 0x1007;
+	uint256 public constant ERR_NO_VALUE = 0x1008;
 
 	// Error Code: Requested token has no known value.
-	uint256 public constant ERR_DEBT_EXCEEDED = 0x1008;
+	uint256 public constant ERR_DEBT_EXCEEDED = 0x1009;
 
 	// Error Code: No reward available on the account.
-	uint256 public constant ERR_NO_REWARD = 0x1009;
+	uint256 public constant ERR_NO_REWARD = 0x100a;
 
 	// Error Code: Reward can not be claimed, collateral to debt ration too low.
-	uint256 public constant ERR_REWARD_CLAIM_REJECTED = 0x100A;
+	uint256 public constant ERR_REWARD_CLAIM_REJECTED = 0x100b;
 }

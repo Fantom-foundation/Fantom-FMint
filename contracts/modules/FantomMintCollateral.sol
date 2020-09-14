@@ -46,6 +46,9 @@ contract FantomMintCollateral is FantomMintErrorCodes
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256);
 
+    // canDeposit (abstract) checks if the given token can be deposited to the collateral pool.
+    function canDeposit(address _token) public view returns (bool);
+
     // rewardUpdate (abstract) notifies the reward distribution to update state
     // of the given account.
     function rewardUpdate(address _account) public;
@@ -53,6 +56,31 @@ contract FantomMintCollateral is FantomMintErrorCodes
     // -------------------------------------------------------------
     // Collateral management functions below
     // -------------------------------------------------------------
+
+    // mustDeposit (wrapper) tries to deposit given amount of tokens
+    // and reverts on failure.
+    function mustDeposit(address _token, uint256 _amount) public {
+        // make the attempt
+        uint256 result = deposit(_token, _amount);
+
+        // check zero amount condition
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check deposit prohibited condition
+        require(result != ERR_DEPOSIT_PROHIBITED, "deposit of the token prohibited");
+
+        // check low balance condition
+        require(result != ERR_LOW_BALANCE, "insufficient token balance");
+
+        // check missing allowance condition
+        require(result != ERR_LOW_ALLOWANCE, "allowance not given");
+
+        // check no value condition
+        require(result != ERR_NO_VALUE, "token has no value");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
+    }
 
     // deposit receives assets to build up the collateral value.
     // The collateral can be used later to mint tokens inside fMint module.
@@ -62,6 +90,11 @@ contract FantomMintCollateral is FantomMintErrorCodes
         // make sure a non-zero value is being deposited
         if (_amount == 0) {
             return ERR_ZERO_AMOUNT;
+        }
+
+        // make sure the requested token can be deposited
+        if (!canDeposit(_token)) {
+            return ERR_DEPOSIT_PROHIBITED;
         }
 
         // make sure caller has enough balance to cover the deposit
@@ -134,28 +167,6 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
         // withdraw successful
         return ERR_NO_ERROR;
-    }
-
-    // mustDeposit (wrapper) tries to deposit given amount of tokens
-    // and reverts on failure.
-    function mustDeposit(address _token, uint256 _amount) public {
-        // make the attempt
-        uint256 result = deposit(_token, _amount);
-
-        // check zero amount condition
-        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
-
-        // check low balance condition
-        require(result != ERR_LOW_BALANCE, "insufficient token balance");
-
-        // check missing allowance condition
-        require(result != ERR_LOW_ALLOWANCE, "allowance not given");
-
-        // check no value condition
-        require(result != ERR_NO_VALUE, "token has no value");
-
-        // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 
     // mustWithdraw (wrapper) tries to subtracts any deposited collateral token from the contract
