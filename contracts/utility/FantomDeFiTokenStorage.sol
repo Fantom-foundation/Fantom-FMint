@@ -28,10 +28,10 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
     // dustAdjustment represents the adjustment added to the value calculation
     // to round the dust
-    uint256 valueDustAdjustment;
+    bool valueDustAdjustment;
 
     // constructor initializes a new instance of the module.
-    constructor(address _addressProvider, uint256 _dustAdt) public {
+    constructor(address _addressProvider, bool _dustAdt) public {
         // keep the address provider connecting contracts together
         addressProvider = IFantomMintAddressProvider(_addressProvider);
 
@@ -83,7 +83,14 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         uint256 priceDigitsCorrection = 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
 
         // calculate the value and adjust for the dust
-        return _amount.mul(price).div(priceDigitsCorrection).add(valueDustAdjustment);
+        price = _amount.mul(price).div(priceDigitsCorrection);
+
+        // do the dust adjustment to the value calculation?
+        if (valueDustAdjustment) {
+            price.add(1);
+        }
+
+        return price;
     }
 
     // total returns the total value of all the tokens registered inside the storage.

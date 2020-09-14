@@ -129,6 +129,25 @@ contract FantomMintCollateral is FantomMintErrorCodes
         return ERR_NO_ERROR;
     }
 
+    // mustWithdraw (wrapper) tries to subtracts any deposited collateral token from the contract
+    // and reverts on failure.
+    function mustWithdraw(address _token, uint256 _amount) public {
+        // make the attempt
+        uint256 result = withdraw(_token, _amount);
+
+        // check zero amount condition
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check low balance condition
+        require(result != ERR_LOW_BALANCE, "insufficient collateral balance");
+
+        // check low balance condition
+        require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value remains");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
+    }
+
     // withdraw subtracts any deposited collateral token from the contract.
     // The remaining collateral value is compared to the minimal required
     // collateral to debt ratio and the transfer is rejected
@@ -167,24 +186,5 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
         // withdraw successful
         return ERR_NO_ERROR;
-    }
-
-    // mustWithdraw (wrapper) tries to subtracts any deposited collateral token from the contract
-    // and reverts on failure.
-    function mustWithdraw(address _token, uint256 _amount) public returns (uint256) {
-        // make the attempt
-        uint256 result = withdraw(_token, _amount);
-
-        // check zero amount condition
-        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
-
-        // check low balance condition
-        require(result != ERR_LOW_BALANCE, "insufficient collateral balance");
-
-        // check low balance condition
-        require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value remains");
-
-        // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 }
