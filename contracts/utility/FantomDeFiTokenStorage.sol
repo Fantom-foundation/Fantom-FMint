@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "../interfaces/IPriceOracleProxy.sol";
 import "../interfaces/IFantomMintAddressProvider.sol";
-import "../interfaces/IFantomDeFiTokenRegistry.sol";
+import "../interfaces/IFantomMintTokenRegistry.sol";
 
 // FantomDeFiTokenStorage implements a token pool used by the Fantom
 // DeFi fMint protocol to track collateral and debt.
@@ -26,10 +26,17 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // addressProvider represents the connection to other fMint contracts.
     IFantomMintAddressProvider public addressProvider;
 
+    // dustAdjustment represents the adjustment added to the value calculation
+    // to round the dust
+    uint256 valueDustAdjustment;
+
     // constructor initializes a new instance of the module.
-    constructor(address _addressProvider) public {
-        // remember the address provider connecting contracts together
+    constructor(address _addressProvider, uint256 _dustAdt) public {
+        // keep the address provider connecting contracts together
         addressProvider = IFantomMintAddressProvider(_addressProvider);
+
+        // keep the dust adjustment to value calculations
+        valueDustAdjustment = _dustAdt;
     }
 
     // isMinter verifies if the incoming request comes from the master
@@ -73,10 +80,10 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         // get the token price and price digits correction
         // NOTE: We may want to cache price decimals to save some gas on subsequent calls.
         uint256 price = IPriceOracleProxy(addressProvider.getPriceOracleProxy()).getPrice(_token);
-        uint256 priceDigitsCorrection = 10**uint256(IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
+        uint256 priceDigitsCorrection = 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
 
-        // calculate the value
-        return _amount.mul(price).div(priceDigitsCorrection);
+        // calculate the value and adjust for the dust
+        return _amount.mul(price).div(priceDigitsCorrection).add(valueDustAdjustment);
     }
 
     // total returns the total value of all the tokens registered inside the storage.
