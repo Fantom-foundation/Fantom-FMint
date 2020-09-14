@@ -1,18 +1,18 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts/ownership/Ownable.sol";
-import "../interfaces/IFantomDeFiTokenRegistry.sol";
+import "../interfaces/IFantomMintTokenRegistry.sol";
 import "../interfaces/IERC20Detailed.sol";
 
 /**
-* This utility contract implements an update aware list of
-* DeFi tokens used across Fantom DeFi protocols.
+* This utility contract implements an update aware
+* list of tokens used by the Fantom fMint protocol.
 *
 * version 0.1.0
 * license MIT
 * author Fantom Foundation, Jiri Malek
 */
-contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
+contract FantomMintTokenRegistry is Ownable, IFantomMintTokenRegistry {
     // TokenInformation represents a single token handled by the registry.
     // The DeFi API uses this reference to do on-chain tokens tracking.
     struct TokenInformation {
@@ -26,8 +26,6 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         bool isActive;       // is this token active in DeFi?
         bool canDeposit;     // is this token available for deposit?
         bool canMint;        // is this token available for minting?
-        bool canBorrow;      // is this token available for fLend?
-        bool canTrade;       // is this token available for direct fTrade?
     }
 
     // tokens is the mapping between the token address and it's detailed information.
@@ -72,16 +70,6 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         return tokens[_token].canMint;
     }
 
-    // canBorrow informs if the specified token can be borrowed in Fantom DeFi.
-    function canBorrow(address _token) public view returns (bool) {
-        return tokens[_token].canBorrow;
-    }
-
-    // canTrade informs if the specified token can be traded directly in Fantom DeFi.
-    function canTrade(address _token) public view returns (bool) {
-        return tokens[_token].canTrade;
-    }
-
     // ---------------------------------
     // tokens management
     // ---------------------------------
@@ -94,9 +82,7 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         uint8 _priceDecimals,
         bool _isActive,
         bool _canDeposit,
-        bool _canMint,
-        bool _canBorrow,
-        bool _canTrade
+        bool _canMint
     ) external onlyOwner {
         // make sure the token does not exist yet
         require(0 == tokens[_token].id, "token already known");
@@ -122,9 +108,7 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
             priceDecimals : _priceDecimals,
             isActive : _isActive,
             canDeposit : _canDeposit,
-            canMint : _canMint,
-            canBorrow : _canBorrow,
-            canTrade : _canTrade
+            canMint : _canMint
         });
 
         // inform
@@ -139,9 +123,7 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         uint8 _priceDecimals,
         bool _isActive,
         bool _canDeposit,
-        bool _canMint,
-        bool _canBorrow,
-        bool _canTrade
+        bool _canMint
     ) external onlyOwner {
         // make sure the token exists
         require(0 != tokens[_token].id, "token unknown");
@@ -153,8 +135,6 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         tokens[_token].isActive = _isActive;
         tokens[_token].canDeposit = _canDeposit;
         tokens[_token].canMint = _canMint;
-        tokens[_token].canBorrow = _canBorrow;
-        tokens[_token].canTrade = _canTrade;
 
         // inform
         emit TokenUpdated(_token, tokens[_token].name);
