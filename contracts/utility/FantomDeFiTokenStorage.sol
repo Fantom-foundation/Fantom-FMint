@@ -83,14 +83,14 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         uint256 priceDigitsCorrection = 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
 
         // calculate the value and adjust for the dust
-        price = _amount.mul(price).div(priceDigitsCorrection);
+        value = _amount.mul(price).div(priceDigitsCorrection);
 
         // do the dust adjustment to the value calculation?
         if (valueDustAdjustment) {
-            price = price.add(1);
+            value = value.add(1);
         }
 
-        return price;
+        return value;
     }
 
     // total returns the total value of all the tokens registered inside the storage.
