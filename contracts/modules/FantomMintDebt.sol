@@ -34,10 +34,6 @@ contract FantomMintDebt is FantomMintErrorCodes
     // to adjust result decimals after applying fee to a value calculation.
     uint256 public constant fMintFeeDigitsCorrection = 10000;
 
-    // fMintLowestAmountAllowed represents the minimal amount of tokens allowed to be minted.
-    // NOTE: We may want to use a different minimal amount based on token.
-    uint256 public constant fMintLowestAmountAllowed = 10**8;
-
     // -------------------------------------------------------------
     // Emitted events definition
     // -------------------------------------------------------------
@@ -72,7 +68,7 @@ contract FantomMintDebt is FantomMintErrorCodes
     // of the given account.
     function rewardUpdate(address _account) public;
 
-    // canMint informs if the given token can be minted in the fMint protocol.
+    // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool);
 
     // getFeeToken (abstract) returns the address of fee ERC20 token.
@@ -109,8 +105,8 @@ contract FantomMintDebt is FantomMintErrorCodes
     // ratio to the total user's debt value on minting.
     function mint(address _token, uint256 _amount) public returns (uint256)
     {
-        // make sure a non-zero value is being deposited
-        if (_amount < fMintLowestAmountAllowed) {
+        // make sure a non-zero value is being minted
+        if (_amount == 0) {
             return ERR_LOW_AMOUNT;
         }
 
