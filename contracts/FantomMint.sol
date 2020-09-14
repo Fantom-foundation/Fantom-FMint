@@ -46,12 +46,12 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
 
     // debtValueOf returns the value of account debt.
     function debtValueOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).valueOf(_account);
+        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).totalOf(_account);
     }
 
     // collateralValueOf returns the value of account collateral.
     function collateralValueOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getCollateralPool()).valueOf(_account);
+        return IFantomDeFiTokenStorage(addressProvider.getCollateralPool()).totalOf(_account);
     }
 
     // getCollateralPool returns the address of collateral pool.

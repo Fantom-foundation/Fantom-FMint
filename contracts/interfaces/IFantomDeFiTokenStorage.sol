@@ -9,8 +9,8 @@ interface IFantomDeFiTokenStorage {
     // total returns the total value of all the tokens registered inside the storage.
     function total() external view returns (uint256);
 
-    // valueOf returns the value of current balance of specified account.
-    function valueOf(address _account) external view returns (uint256);
+    // totalOf returns the value of current balance of specified account.
+    function totalOf(address _account) external view returns (uint256);
 
     // balanceOf returns the balance of the given token on the given account.
     function balanceOf(address _account, address _token) external view returns (uint256);

@@ -144,7 +144,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     // principalBalanceOf returns the balance of principal token
     // which yield a reward share for this account.
     function principalBalanceOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).valueOf(_account);
+        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).totalOf(_account);
     }
 
     // rewardTokenAddress returns address of the reward ERC20 token.

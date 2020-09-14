@@ -105,8 +105,8 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         return value;
     }
 
-    // valueOf returns the value of current balance of specified account.
-    function valueOf(address _account) public view returns (uint256 value) {
+    // totalOf returns the value of current balance of specified account.
+    function totalOf(address _account) public view returns (uint256 value) {
         // loop all registered debt tokens
         for (uint i = 0; i < tokens.length; i++) {
             // advance the result by the value of current token balance of this token
