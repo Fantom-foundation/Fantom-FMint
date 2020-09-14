@@ -152,7 +152,7 @@ contract FantomDeFiTokenRegistry is Ownable, IFantomDeFiTokenRegistry {
         tokens[_token].priceDecimals = _priceDecimals;
         tokens[_token].isActive = _isActive;
         tokens[_token].canDeposit = _canDeposit;
-        tokens[_token].canDeposit = _canMint;
+        tokens[_token].canMint = _canMint;
         tokens[_token].canBorrow = _canBorrow;
         tokens[_token].canTrade = _canTrade;
 
