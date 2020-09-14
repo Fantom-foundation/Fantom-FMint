@@ -71,7 +71,7 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // -------------------------------------------------------------
 
     // tokenValue returns the value of the given amount of the token specified.
-    function tokenValue(address _token, uint256 _amount) public view returns (uint256) {
+    function tokenValue(address _token, uint256 _amount) public view returns (uint256 value) {
         // do not calculate anything on zero amount
         if (_amount == 0) {
             return 0;
@@ -87,7 +87,7 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
         // do the dust adjustment to the value calculation?
         if (valueDustAdjustment) {
-            price.add(1);
+            price = price.add(1);
         }
 
         return price;
