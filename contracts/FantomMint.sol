@@ -121,16 +121,13 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         return 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
     }
 
-    // tokenValue calculates the value of the given amount of the token specified.
-    // The value is returned in given referential tokens (fUSD).
-    // Implements tokenValue() abstract function of the underlying storage contracts.
-    function tokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        // do we have a reason to calculate anything?
-        if (0 == _amount) {
-            return 0;
-        }
+    // collateralTokenValue calculates the value of the given collateral amount of the token specified.
+    function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256) {
+        return IFantomDeFiTokenStorage(addressProvider.getCollateralPool()).tokenValue(_token, _amount);
+    }
 
-        // calculate the value using price Oracle access
-        return _amount.mul(getPrice(_token)).div(getPriceDigitsCorrection(_token));
+    // debtTokenValue calculates the value of the given debt amount of the token specified.
+    function debtTokenValue(address _token, uint256 _amount) public view returns (uint256) {
+        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).tokenValue(_token, _amount);
     }
 }
