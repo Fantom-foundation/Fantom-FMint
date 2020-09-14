@@ -3,6 +3,9 @@ pragma solidity ^0.5.0;
 // IFantomDeFiTokenStorage defines the interface to token storage contract
 // used by the DeFi protocol to manage collateral and debt pools.
 interface IFantomDeFiTokenStorage {
+    // tokenValue returns the value of the given amount of the token specified.
+    function tokenValue(address _token, uint256 _amount) external view returns (uint256);
+
     // total returns the total value of all the tokens registered inside the storage.
     function total() external view returns (uint256);
 

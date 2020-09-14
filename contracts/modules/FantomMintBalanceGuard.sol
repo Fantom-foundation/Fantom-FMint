@@ -59,8 +59,11 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // collateralValueOf (abstract) returns the value of account collateral.
     function collateralValueOf(address _account) public view returns (uint256);
 
-    // tokenValue (abstract) calculates the value of the given amount of the token specified.
-    function tokenValue(address _token, uint256 _amount) public view returns (uint256);
+    // debtTokenValue (abstract) calculates the value of the given debt amount of the token specified.
+    function debtTokenValue(address _token, uint256 _amount) public view returns (uint256);
+
+    // collateralTokenValue (abstract) calculates the value of the given collateral amount of the token specified.
+    function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256);
 
     // -------------------------------------------------------------
     // Collateral to debt ratio checks below
@@ -90,14 +93,14 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // without breaking collateral to debt ratio rule.
     function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after collateral decrease
-        return isCollateralSufficient(_account, tokenValue(_token, _amount), 0, collateralLowestDebtRatio4dec);
+        return isCollateralSufficient(_account, collateralTokenValue(_token, _amount), 0, collateralLowestDebtRatio4dec);
     }
 
     // debtCanIncrease checks if the specified amount of debt can be added to the account
     // without breaking collateral to debt ratio rule.
     function debtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after debt increase
-        return isCollateralSufficient(_account, 0, tokenValue(_token, _amount), collateralLowestDebtRatio4dec);
+        return isCollateralSufficient(_account, 0, debtTokenValue(_token, _amount), collateralLowestDebtRatio4dec);
     }
 
     // rewardCanClaim checks if the account can claim accumulated rewards
