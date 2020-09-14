@@ -28,7 +28,7 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
     // dustAdjustment represents the adjustment added to the value calculation
     // to round the dust
-    bool valueDustAdjustment;
+    bool public valueDustAdjustment;
 
     // constructor initializes a new instance of the module.
     constructor(address _addressProvider, bool _dustAdt) public {
