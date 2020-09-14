@@ -99,6 +99,9 @@ contract FantomMintDebt is FantomMintErrorCodes
 
         // check low collateral ratio condition
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 
     // mint allows user to create a specified token against already established
@@ -178,6 +181,9 @@ contract FantomMintDebt is FantomMintErrorCodes
 
         // check low allowance condition
         require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 
     // repay allows user to return some of the debt of the specified token

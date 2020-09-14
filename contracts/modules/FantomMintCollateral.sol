@@ -153,6 +153,9 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
         // check no value condition
         require(result != ERR_NO_VALUE, "token has no value");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 
     // mustWithdraw (wrapper) tries to subtracts any deposited collateral token from the contract
@@ -169,5 +172,8 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
         // check low balance condition
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value remains");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 }

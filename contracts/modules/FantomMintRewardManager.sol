@@ -90,6 +90,9 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
 
         // claim rejected condition
         require(result != ERR_REWARD_CLAIM_REJECTED, "reward claim rejected");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_VALUE, "unexpected failure");
     }
 
     // rewardClaim transfers earned rewards to the caller account address
