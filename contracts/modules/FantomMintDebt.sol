@@ -85,7 +85,7 @@ contract FantomMintDebt is FantomMintErrorCodes
         uint256 result = mint(_token, _amount);
 
         // check low amount condition
-        require(result != ERR_LOW_AMOUNT, "amount too low");
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
 
         // check minting now enabled for the token condition
         require(result != ERR_MINTING_PROHIBITED, "minting of the token prohibited");
@@ -97,7 +97,7 @@ contract FantomMintDebt is FantomMintErrorCodes
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value");
 
         // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
+        require(result == ERR_NO_ERROR, "unexpected failure");
     }
 
     // mint allows user to create a specified token against already established
@@ -107,7 +107,7 @@ contract FantomMintDebt is FantomMintErrorCodes
     {
         // make sure a non-zero value is being minted
         if (_amount == 0) {
-            return ERR_LOW_AMOUNT;
+            return ERR_ZERO_AMOUNT;
         }
 
         // make sure the requested token can be minted
@@ -179,7 +179,7 @@ contract FantomMintDebt is FantomMintErrorCodes
         require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
 
         // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
+        require(result == ERR_NO_ERROR, "unexpected failure");
     }
 
     // repay allows user to return some of the debt of the specified token
