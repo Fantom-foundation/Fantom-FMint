@@ -82,7 +82,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
         require(result != ERR_REWARDS_DEPLETED, "rewards depleted");
 
         // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
+        require(result == ERR_NO_ERROR, "unexpected failure");
     }
 
     // rewardPush verifies the reward distribution conditions and calculates

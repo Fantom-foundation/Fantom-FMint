@@ -73,13 +73,13 @@ contract FantomMintCollateral is FantomMintErrorCodes
         require(result != ERR_LOW_BALANCE, "insufficient token balance");
 
         // check missing allowance condition
-        require(result != ERR_LOW_ALLOWANCE, "allowance not given");
+        require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
 
         // check no value condition
         require(result != ERR_NO_VALUE, "token has no value");
 
         // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
+        require(result == ERR_NO_ERROR, "unexpected failure");
     }
 
     // deposit receives assets to build up the collateral value.
@@ -141,11 +141,14 @@ contract FantomMintCollateral is FantomMintErrorCodes
         // check low balance condition
         require(result != ERR_LOW_BALANCE, "insufficient collateral balance");
 
+        // check no value condition
+        require(result != ERR_NO_VALUE, "token has no value");
+
         // check low balance condition
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value remains");
 
         // sanity check for any non-covered condition
-        require(result == ERR_NO_VALUE, "unexpected failure");
+        require(result == ERR_NO_ERROR, "unexpected failure");
     }
 
     // withdraw subtracts any deposited collateral token from the contract.
