@@ -71,7 +71,7 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
 
     // canMint informs if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool) {
-        IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).canMint(_token);
+        return IFantomDeFiTokenRegistry(addressProvider.getTokenRegistry()).canMint(_token);
     }
 
     // checkCollateralCanDecrease checks if the specified amount of collateral can be removed from account
