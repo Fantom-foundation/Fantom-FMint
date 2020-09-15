@@ -256,5 +256,5 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     function rewardCanClaim(address _account) public view returns (bool);
 
     // rewardIsEligible (abstract) checks if the account is eligible to receive any reward.
-    function rewardIsEligible(address _account) internal view returns (bool);
+    function rewardIsEligible(address _account) public view returns (bool);
 }

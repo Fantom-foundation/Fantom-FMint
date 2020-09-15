@@ -158,7 +158,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     }
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
-    function rewardIsEligible(address _account) internal view returns (bool) {
+    function rewardIsEligible(address _account) public view returns (bool) {
         return addressProvider.getFantomMint().rewardIsEligible(_account);
     }
 }
