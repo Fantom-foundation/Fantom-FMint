@@ -3,6 +3,7 @@ pragma solidity ^0.5.0;
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/IFantomMintBalanceGuard.sol";
@@ -11,7 +12,7 @@ import "./FantomMintErrorCodes.sol";
 
 // FantomMintCore implements a calculation of different rate steps
 // between collateral and debt pools to ensure healthy accounts.
-contract FantomMintCollateral is FantomMintErrorCodes
+contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
 {
     // define used libs
     using SafeMath for uint256;
@@ -59,9 +60,9 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
     // mustDeposit (wrapper) tries to deposit given amount of tokens
     // and reverts on failure.
-    function mustDeposit(address _token, uint256 _amount) public {
+    function mustDeposit(address _token, uint256 _amount) public nonReentrant {
         // make the attempt
-        uint256 result = deposit(_token, _amount);
+        uint256 result = _deposit(_token, _amount);
 
         // check zero amount condition
         require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
@@ -85,7 +86,12 @@ contract FantomMintCollateral is FantomMintErrorCodes
     // deposit receives assets to build up the collateral value.
     // The collateral can be used later to mint tokens inside fMint module.
     // The call does not subtract any fee. No interest is granted on deposit.
-    function deposit(address _token, uint256 _amount) public returns (uint256)
+    function deposit(address _token, uint256 _amount) public nonReentrant returns (uint256) {
+        return _deposit(_token, _amount);
+    }
+
+    // _deposit (internal) does the collateral increase job.
+    function _deposit(address _token, uint256 _amount) internal returns (uint256)
     {
         // make sure a non-zero value is being deposited
         if (_amount == 0) {
@@ -131,9 +137,9 @@ contract FantomMintCollateral is FantomMintErrorCodes
 
     // mustWithdraw (wrapper) tries to subtracts any deposited collateral token from the contract
     // and reverts on failure.
-    function mustWithdraw(address _token, uint256 _amount) public {
+    function mustWithdraw(address _token, uint256 _amount) public nonReentrant {
         // make the attempt
-        uint256 result = withdraw(_token, _amount);
+        uint256 result = _withdraw(_token, _amount);
 
         // check zero amount condition
         require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
@@ -155,7 +161,12 @@ contract FantomMintCollateral is FantomMintErrorCodes
     // The remaining collateral value is compared to the minimal required
     // collateral to debt ratio and the transfer is rejected
     // if the ratio is lower than the enforced one.
-    function withdraw(address _token, uint256 _amount) public returns (uint256) {
+    function withdraw(address _token, uint256 _amount) public nonReentrant returns (uint256) {
+        return _withdraw(_token, _amount);
+    }
+
+    // _withdraw (internal) does the collateral decrease job.
+    function _withdraw(address _token, uint256 _amount) internal returns (uint256) {
         // make sure a non-zero value is being withdrawn
         if (_amount == 0) {
             return ERR_ZERO_AMOUNT;

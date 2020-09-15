@@ -3,6 +3,7 @@ pragma solidity ^0.5.0;
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
@@ -12,23 +13,22 @@ import "./FantomMintErrorCodes.sol";
 
 // FantomMintCore implements a calculation of different rate steps
 // between collateral and debt pools to ensure healthy accounts.
-contract FantomMintDebt is FantomMintErrorCodes
+contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
     using SafeERC20 for ERC20;
 
-    // feePool keeps information about the fee collected from
-    // minter internal operations in fMin fee tokens. It's actually part
-    // of the users' debt, not a received value.
+    // feePool keeps information about the fee collected from token created
+    // in minted tokens denomination.
     // NOTE: No idea what we shall do with the fee pool. Mint and distribute along with rewards maybe?
-    uint256 public feePool;
+    mapping(address => uint256) public feePool;
 
-    // fMintFee represents the current value of the minting fee used
-    // for minter operations.
-    // The value is kept in 4 decimals; 25 = 0.0025 = 0.25%
-    uint256 public constant fMintFee = 25;
+    // fMintFee represents the current percentage of the created tokens
+    // captured as a fee.
+    // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
+    uint256 public constant fMintFee = 50;
 
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
@@ -39,7 +39,7 @@ contract FantomMintDebt is FantomMintErrorCodes
     // -------------------------------------------------------------
 
     // Minted is emitted on confirmed token minting against user's collateral value.
-    event Minted(address indexed token, address indexed user, uint256 amount);
+    event Minted(address indexed token, address indexed user, uint256 amount, uint256 fee);
 
     // Repaid is emitted on confirmed token repay of user's debt of the token.
     event Repaid(address indexed token, address indexed user, uint256 amount);
@@ -80,12 +80,15 @@ contract FantomMintDebt is FantomMintErrorCodes
 
     // mustMint (wrapper) tries to mint specified amount of tokens
     // and reverts on failure.
-    function mustMint (address _token, uint256 _amount) public {
+    function mustMint(address _token, uint256 _amount) public nonReentrant {
         // make the attempt
-        uint256 result = mint(_token, _amount);
+        uint256 result = _mint(_token, _amount);
 
-        // check low amount condition
+        // check zero amount condition
         require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check low amount condition (fee to amount check)
+        require(result != ERR_LOW_AMOUNT, "amount too low");
 
         // check minting now enabled for the token condition
         require(result != ERR_MINTING_PROHIBITED, "minting of the token prohibited");
@@ -103,7 +106,12 @@ contract FantomMintDebt is FantomMintErrorCodes
     // mint allows user to create a specified token against already established
     // collateral. The value of the collateral must be in at least configured
     // ratio to the total user's debt value on minting.
-    function mint(address _token, uint256 _amount) public returns (uint256)
+    function mint(address _token, uint256 _amount) public nonReentrant returns (uint256) {
+        return _mint(_token, _amount);
+    }
+
+    // _mint (internal) does the actual minting of tokens.
+    function _mint(address _token, uint256 _amount) internal returns (uint256)
     {
         // make sure a non-zero value is being minted
         if (_amount == 0) {
@@ -116,8 +124,7 @@ contract FantomMintDebt is FantomMintErrorCodes
         }
 
         // what is the value of the borrowed token?
-        uint256 tokenValue = getPrice(_token);
-        if (tokenValue == 0) {
+        if (0 == getPrice(_token)) {
             return ERR_NO_VALUE;
         }
 
@@ -126,38 +133,30 @@ contract FantomMintDebt is FantomMintErrorCodes
             return ERR_LOW_COLLATERAL_RATIO;
         }
 
+        // calculate the minting fee; the fee is collected from the minted tokens
+        // adjust the fee by adding +1 to round the fee up and prevent dust manipulations
+        uint256 fee = _amount.mul(fMintFee).div(fMintFeeDigitsCorrection).add(1);
+
+        // make sure the fee does not consume the minted amount on dust operations
+        if (fee >= _amount) {
+            return ERR_LOW_AMOUNT;
+        }
+
         // update the reward distribution for the account before the state changes
         rewardUpdate(msg.sender);
 
-        // get the pool address
-        IFantomDeFiTokenStorage pool = IFantomDeFiTokenStorage(getDebtPool());
+        // add the requested amount to the debt
+        IFantomDeFiTokenStorage(getDebtPool()).add(msg.sender, _token, _amount);
 
-        // get fee ERC20 token address
-        address feeToken = getFeeToken();
+        // update the fee pool
+        feePool[_token] = feePool[_token].add(fee);
 
-        // add the minted amount to the debt
-        pool.add(msg.sender, _token, _amount);
-
-        // calculate the minting fee and store the value we gained by this operation
-        // @NOTE: We don't check if the fee can be added to the account debt
-        // assuming that if the debt could be increased for the minted account, it could
-        // accommodate the fee as well (the collateral slippage is in play).
-        uint256 fee = _amount
-                        .mul(tokenValue)
-                        .mul(fMintFee)
-                        .div(fMintFeeDigitsCorrection)
-                        .div(getPriceDigitsCorrection(feeToken));
-        feePool = feePool.add(fee);
-
-        // add the fee to debt
-        pool.add(msg.sender, feeToken, fee);
-
-        // mint the requested balance of the ERC20 token
+        // mint the requested balance of the ERC20 token minus the fee
         // @NOTE: the fMint contract must have the minter privilege on the ERC20 token!
-        ERC20Mintable(_token).mint(msg.sender, _amount);
+        ERC20Mintable(_token).mint(msg.sender, _amount.sub(fee));
 
         // emit the minter notification event
-        emit Minted(_token, msg.sender, _amount);
+        emit Minted(_token, msg.sender, _amount, fee);
 
         // success
         return ERR_NO_ERROR;
@@ -167,7 +166,7 @@ contract FantomMintDebt is FantomMintErrorCodes
     // and reverts on failure.
     function mustRepay(address _token, uint256 _amount) public {
         // make the attempt
-        uint256 result = repay(_token, _amount);
+        uint256 result = _repay(_token, _amount);
 
         // check zero amount condition
         require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
@@ -185,7 +184,12 @@ contract FantomMintDebt is FantomMintErrorCodes
     // repay allows user to return some of the debt of the specified token
     // the repay does not collect any fees and is not validating the user's total
     // collateral to debt position.
-    function repay(address _token, uint256 _amount) public returns (uint256)
+    function repay(address _token, uint256 _amount) public nonReentrant returns (uint256) {
+        return _repay(_token, _amount);
+    }
+
+    // _repay (internal) does the token burning action.
+    function _repay(address _token, uint256 _amount) internal returns (uint256)
     {
         // make sure a non-zero value is being deposited
         if (_amount == 0) {
@@ -206,7 +210,7 @@ contract FantomMintDebt is FantomMintErrorCodes
             return ERR_LOW_ALLOWANCE;
         }
 
-        // burn the tokens returned by the user
+        // burn the tokens returned by the user first
         ERC20Burnable(_token).burnFrom(msg.sender, _amount);
 
         // update the reward distribution for the account before the state changes
