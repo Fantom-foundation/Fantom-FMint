@@ -164,7 +164,7 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
     // mustRepay (wrapper) tries to lower the debt on account by given amount
     // and reverts on failure.
-    function mustRepay(address _token, uint256 _amount) public {
+    function mustRepay(address _token, uint256 _amount) public nonReentrant {
         // make the attempt
         uint256 result = _repay(_token, _amount);
 
