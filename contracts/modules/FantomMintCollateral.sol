@@ -36,7 +36,7 @@ contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
     // -------------------------------------------------------------
 
     // getCollateralPool (abstract) returns the address of collateral pool.
-    function getCollateralPool() public view returns (address);
+    function getCollateralPool() public view returns (IFantomDeFiTokenStorage);
 
     // checkCollateralCanDecrease (abstract) checks if the specified
     // amount of collateral can be removed from account
@@ -126,7 +126,7 @@ contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
         ERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
 
         // add the collateral to the account
-        IFantomDeFiTokenStorage(getCollateralPool()).add(msg.sender, _token, _amount);
+        getCollateralPool().add(msg.sender, _token, _amount);
 
         // emit the event signaling a successful deposit
         emit Deposited(_token, msg.sender, _amount);

@@ -76,7 +76,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
         require(result != ERR_REWARDS_EARLY, "too early for a rewards push");
 
         // check no rewards unlocked condition
-        require(result != ERR_REWARDS_NONE, "no rewards unclocked");
+        require(result != ERR_REWARDS_NONE, "no rewards unlocked");
 
         // check reward account balance low condition
         require(result != ERR_REWARDS_DEPLETED, "rewards depleted");
@@ -104,7 +104,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
 
     	// check the manager account balance on the reward pool
     	// to make sure these rewards can be distributed
-    	if (amount > IERC20(rewardTokenAddress()).balanceOf(address(this))) {
+    	if (amount > rewardTokenAddress().balanceOf(address(this))) {
     		return ERR_REWARDS_DEPLETED;
     	}
 
@@ -138,27 +138,27 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     // which yield a reward to entitled participants based
     // on their individual principal share.
     function principalBalance() public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).total();
+        return addressProvider.getDebtPool().total();
     }
 
     // principalBalanceOf returns the balance of principal token
     // which yield a reward share for this account.
     function principalBalanceOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).totalOf(_account);
+        return addressProvider.getDebtPool().totalOf(_account);
     }
 
     // rewardTokenAddress returns address of the reward ERC20 token.
-    function rewardTokenAddress() public view returns (address) {
+    function rewardTokenAddress() public view returns (ERC20) {
         return addressProvider.getRewardToken();
     }
 
     // rewardCanClaim checks if the account can claim accumulated reward.
     function rewardCanClaim(address _account) public view returns (bool) {
-        return IFantomMintBalanceGuard(addressProvider.getFantomMint()).rewardCanClaim(_account);
+        return addressProvider.getFantomMint().rewardCanClaim(_account);
     }
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
     function rewardIsEligible(address _account) internal view returns (bool) {
-        return IFantomMintBalanceGuard(addressProvider.getFantomMint()).rewardIsEligible(_account);
+        return addressProvider.getFantomMint().rewardIsEligible(_account);
     }
 }

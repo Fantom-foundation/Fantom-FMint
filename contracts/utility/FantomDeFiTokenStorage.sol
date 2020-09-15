@@ -39,16 +39,10 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         valueDustAdjustment = _dustAdt;
     }
 
-    // isMinter verifies if the incoming request comes from the master
-    // fMint minter contract.
-    function isMinter(address _account) public view returns (bool) {
-        return _account == addressProvider.getFantomMint();
-    }
-
     // onlyMinter modifier controls access to sensitive functions
     // to allow only calls from fMint Minter contract.
     modifier onlyMinter() {
-        require(isMinter(msg.sender), "token storage access restricted");
+        require(msg.sender == address(addressProvider.getFantomMint()), "token storage access restricted");
         _;
     }
 
@@ -135,7 +129,7 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
         totalBalance[_token] = totalBalance[_token].add(_amount);
 
         // make sure the token is registered
-        enroll(_token);
+        _enroll(_token);
     }
 
     // sub removes specified amount of tokens from given account
@@ -154,7 +148,7 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
     // enroll ensures the specified token is in the list
     // of tokens registered with the storage.
-    function enroll(address _token) internal {
+    function _enroll(address _token) internal {
         bool found = false;
 
         // loop the current list and try to find the token

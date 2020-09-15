@@ -49,7 +49,7 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // -------------------------------------------------------------
 
     // getDebtPool (abstract) returns the address of debt pool.
-    function getDebtPool() public view returns (address);
+    function getDebtPool() public view returns (IFantomDeFiTokenStorage);
 
     // checkDebtCanIncrease (abstract) checks if the specified
     // amount of debt can be added to the account
@@ -70,9 +70,6 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
     // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool);
-
-    // getFeeToken (abstract) returns the address of fee ERC20 token.
-    function getFeeToken() public view returns (address);
 
     // -------------------------------------------------------------
     // Debt management functions below, the actual minter work
@@ -146,7 +143,7 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
         rewardUpdate(msg.sender);
 
         // add the requested amount to the debt
-        IFantomDeFiTokenStorage(getDebtPool()).add(msg.sender, _token, _amount);
+        getDebtPool().add(msg.sender, _token, _amount);
 
         // update the fee pool
         feePool[_token] = feePool[_token].add(fee);

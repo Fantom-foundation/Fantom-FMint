@@ -55,28 +55,23 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     }
 
     // getCollateralPool returns the address of collateral pool.
-    function getCollateralPool() public view returns (address) {
+    function getCollateralPool() public view returns (IFantomDeFiTokenStorage) {
         return addressProvider.getCollateralPool();
     }
 
     // getDebtPool returns the address of debt pool.
-    function getDebtPool() public view returns (address) {
+    function getDebtPool() public view returns (IFantomDeFiTokenStorage) {
         return addressProvider.getDebtPool();
-    }
-
-    // getFeeToken returns the address of fee ERC20 token.
-    function getFeeToken() public view returns (address) {
-        return addressProvider.getFeeToken();
     }
 
     // canDeposit checks if the given token can be deposited to the collateral pool.
     function canDeposit(address _token) public view returns (bool) {
-        return IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).canDeposit(_token);
+        return addressProvider.getTokenRegistry().canDeposit(_token);
     }
 
     // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool) {
-        return IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).canMint(_token);
+        return addressProvider.getTokenRegistry().canMint(_token);
     }
 
     // checkCollateralCanDecrease checks if the specified amount of collateral can be removed from account
@@ -99,7 +94,7 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // rewardUpdate notifies the reward distribution to update state
     // of the given account.
     function rewardUpdate(address _account) public {
-        IFantomMintRewardManager(addressProvider.getRewardDistribution()).rewardUpdate(_account);
+        addressProvider.getRewardDistribution().rewardUpdate(_account);
     }
 
     // -------------------------------------------------------------
@@ -110,7 +105,7 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256) {
         // use linked price oracle aggregate to get the token exchange price
-        return IPriceOracleProxy(addressProvider.getPriceOracleProxy()).getPrice(_token);
+        return addressProvider.getPriceOracleProxy().getPrice(_token);
     }
 
     // getPriceDigitsCorrection returns the correction to the calculated
@@ -118,16 +113,16 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     function getPriceDigitsCorrection(address _token) public view returns (uint256) {
         // get the value from the token registry
         // consider caching it until future protoSync() to save some gas from external call
-        return 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
+        return 10**uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
     }
 
     // collateralTokenValue calculates the value of the given collateral amount of the token specified.
     function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getCollateralPool()).tokenValue(_token, _amount);
+        return addressProvider.getCollateralPool().tokenValue(_token, _amount);
     }
 
     // debtTokenValue calculates the value of the given debt amount of the token specified.
     function debtTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).tokenValue(_token, _amount);
+        return addressProvider.getDebtPool().tokenValue(_token, _amount);
     }
 }

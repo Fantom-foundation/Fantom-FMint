@@ -126,7 +126,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         rewardStash[msg.sender] = 0;
 
         // transfer earned reward tokens to the caller
-        ERC20(rewardTokenAddress()).safeTransfer(msg.sender, reward);
+        rewardTokenAddress().safeTransfer(msg.sender, reward);
 
         // notify about the action
         emit RewardPaid(msg.sender, reward);
@@ -250,7 +250,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     function principalBalanceOf(address _account) public view returns (uint256);
 
     // rewardTokenAddress returns address of the reward ERC20 token.
-    function rewardTokenAddress() public view returns (address);
+    function rewardTokenAddress() public view returns (ERC20);
 
     // rewardCanClaim (abstract) checks if the account can claim accumulated reward.
     function rewardCanClaim(address _account) public view returns (bool);
