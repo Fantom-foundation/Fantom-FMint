@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/IFantomMintAddressProvider.sol";
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "../interfaces/IFantomMintBalanceGuard.sol";
@@ -23,6 +24,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     // define used libs
     using SafeMath for uint256;
     using Address for address;
+    using SafeERC20 for ERC20;
 
     // ---------------------------------------------------------------------
     // Reward distribution constants
@@ -118,8 +120,8 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
         return ERR_NO_ERROR;
     }
 
-    // updateRate modifies the amount of reward unlocked per second
-    function updateRate(uint256 _perSecond) external onlyOwner {
+    // rewardUpdateRate modifies the amount of reward unlocked per second
+    function rewardUpdateRate(uint256 _perSecond) external onlyOwner {
     	// make sure the amount makes sense
     	require(_perSecond > 0, "invalid reward rate");
 
@@ -128,6 +130,18 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
 
     	// notify the change
     	emit RateUpdated(_perSecond);
+    }
+
+    // rewardCleanup will send the remaining balance of reward tokens
+    // to the designated target, if executed by authorized owner.
+    // This allows us to cleanly upgrade rewards distribution without
+    // loosing any value prepared for distribution.
+    function rewardCleanup(address _recipient) public onlyOwner {
+        // get the reward token address
+        ERC20 token = rewardTokenAddress();
+
+        // send the remaining balance of reward tokens to recipient
+        token.safeTransfer(_recipient, token.balanceOf(address(this)));
     }
 
     // ---------------------------------------------------------------------
