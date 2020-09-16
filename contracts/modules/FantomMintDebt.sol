@@ -25,10 +25,10 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // NOTE: No idea what we shall do with the fee pool. Mint and distribute along with rewards maybe?
     mapping(address => uint256) public feePool;
 
-    // fMintFee represents the current percentage of the created tokens
+    // getFMintFee4dec (abstract) represents the current percentage of the created tokens
     // captured as a fee.
     // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
-    uint256 public constant fMintFee = 50;
+    function getFMintFee4dec() public view returns (uint256);
 
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
@@ -132,7 +132,7 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
         // calculate the minting fee; the fee is collected from the minted tokens
         // adjust the fee by adding +1 to round the fee up and prevent dust manipulations
-        uint256 fee = _amount.mul(fMintFee).div(fMintFeeDigitsCorrection).add(1);
+        uint256 fee = _amount.mul(getFMintFee4dec()).div(fMintFeeDigitsCorrection).add(1);
 
         // make sure the fee does not consume the minted amount on dust operations
         if (fee >= _amount) {

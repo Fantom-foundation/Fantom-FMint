@@ -18,24 +18,22 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     using SafeERC20 for ERC20;
 
     // -------------------------------------------------------------
-    // Price and value calculation related constants
+    // Price and value calculation related parameters
     // -------------------------------------------------------------
 
-    // collateralLowestDebtRatio4dec represents the lowest ratio between
+    // getCollateralLowestDebtRatio4dec (abstract) represents the lowest ratio between
     // collateral value and debt value allowed for the user.
     // User can not withdraw his collateral if the active ratio would
     // drop below this value.
-    // The value is returned in 4 decimals, e.g. value 30000 = 3.0
-    uint256 public constant collateralLowestDebtRatio4dec = 30000;
+    function getCollateralLowestDebtRatio4dec() public view returns (uint256);
+
+    // getRewardEligibilityRatio4dec (abstract) represents the collateral to debt ratio user has to have
+    // to be able to receive rewards.
+    function getRewardEligibilityRatio4dec() public view returns (uint256);
 
     // collateralRatioDecimalsCorrection represents the value to be used
     // to adjust result decimals after applying ratio to a value calculation.
     uint256 public constant collateralRatioDecimalsCorrection = 10000;
-
-    // rewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
-    // to be able to receive rewards.
-    // The value is kept in 4 decimals, e.g. value 50000 = 5.0
-    uint256 public constant rewardEligibilityRatio4dec = 50000;
 
     // -------------------------------------------------------------
     // Emitted events definition
@@ -82,8 +80,8 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
-                                        .mul(ratio)
-                                        .div(collateralRatioDecimalsCorrection);
+        .mul(ratio)
+        .div(collateralRatioDecimalsCorrection);
 
         // final collateral value must match the minimal value or exceed it
         return (cCollateralValue >= minCollateralValue);
@@ -93,25 +91,25 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // without breaking collateral to debt ratio rule.
     function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after collateral decrease
-        return isCollateralSufficient(_account, collateralTokenValue(_token, _amount), 0, collateralLowestDebtRatio4dec);
+        return isCollateralSufficient(_account, collateralTokenValue(_token, _amount), 0, getCollateralLowestDebtRatio4dec());
     }
 
     // debtCanIncrease checks if the specified amount of debt can be added to the account
     // without breaking collateral to debt ratio rule.
     function debtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after debt increase
-        return isCollateralSufficient(_account, 0, debtTokenValue(_token, _amount), collateralLowestDebtRatio4dec);
+        return isCollateralSufficient(_account, 0, debtTokenValue(_token, _amount), getCollateralLowestDebtRatio4dec());
     }
 
     // rewardCanClaim checks if the account can claim accumulated rewards
     // by being on a high enough collateral to debt ratio.
     // Implements abstract function of the <FantomMintRewardManager>.
     function rewardCanClaim(address _account) external view returns (bool) {
-        return isCollateralSufficient(_account, 0, 0, collateralLowestDebtRatio4dec);
+        return isCollateralSufficient(_account, 0, 0, getCollateralLowestDebtRatio4dec());
     }
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
     function rewardIsEligible(address _account) external view returns (bool) {
-        return isCollateralSufficient(_account, 0, 0, rewardEligibilityRatio4dec);
+        return isCollateralSufficient(_account, 0, 0, getRewardEligibilityRatio4dec());
     }
 }

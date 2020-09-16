@@ -13,6 +13,7 @@ import "./modules/FantomMintErrorCodes.sol";
 import "./modules/FantomMintBalanceGuard.sol";
 import "./modules/FantomMintCollateral.sol";
 import "./modules/FantomMintDebt.sol";
+import "./modules/FantomMintConfig.sol";
 
 // FantomMint implements the contract of core DeFi function
 // for minting tokens against a deposited collateral. The collateral
@@ -20,7 +21,7 @@ import "./modules/FantomMintDebt.sol";
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
 // of any fee.
-contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt {
+contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt, FantomMintConfig {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
@@ -38,6 +39,30 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     constructor(address _addressProvider) public {
         // remember the address provider connecting satellite contracts to the minter
         addressProvider = IFantomMintAddressProvider(_addressProvider);
+    }
+
+    // -------------------------------------------------------------
+    // Minter parameters resolved from the Config contract
+    // -------------------------------------------------------------
+
+    // getCollateralLowestDebtRatio4dec represents the lowest ratio between
+    // collateral value and debt value allowed for the user.
+    // User can not withdraw his collateral if the active ratio would
+    // drop below this value.
+    function getCollateralLowestDebtRatio4dec () public view returns (uint256) {
+        return collateralLowestDebtRatio4dec;
+    }
+
+    // getRewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
+    // to be able to receive rewards.
+    function getRewardEligibilityRatio4dec () public view returns (uint256) {
+        return rewardEligibilityRatio4dec;
+    }
+
+    // getFMintFee4dec represents the current percentage of the created tokens
+    // captured as a fee.
+    function getFMintFee4dec () public view returns (uint256) {
+        return fMintFee4dec;
     }
 
     // -------------------------------------------------------------

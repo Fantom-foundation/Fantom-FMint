@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Pausable.sol";
  */
 contract FantomFUSD is ERC20, ERC20Detailed, ERC20Mintable, ERC20Burnable, ERC20Pausable {
     // constructor creates the fUSD token
-    constructor(uint256 initialSupply) ERC20Detailed("Fantom USD", "FUSD", 18) public {
+    constructor() ERC20Detailed("Fantom USD", "FUSD", 18) public {
         // nothing to do here
     }
 }
