@@ -43,6 +43,10 @@ contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
     // without breaking collateral to debt ratio rule.
     function checkCollateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool);
 
+    // getMinCollateralAmount (abstract) calculates the minimal amount of given token collateral
+    // which will satisfy the minimal collateral to debt ratio.
+    function getMinCollateralAmount(address _account, address _token) public view returns (uint256);
+
     // getPrice (abstract) returns the price of given ERC20 token using on-chain oracle
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256);
@@ -200,5 +204,53 @@ contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
 
         // withdraw successful
         return ERR_NO_ERROR;
+    }
+
+    // mustWithdrawMax tries to subtracts maximum of deposited collateral token from the contract
+    // it can to still satisfy the required collateral ratio. It reverts the transaction
+    // if it fails.
+    function mustWithdrawMax(address _token) public nonReentrant {
+        // try to withdraw max amount of tokens allowed
+        uint256 result = _withdrawMax(_token);
+
+        // check zero amount condition
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check low balance condition
+        require(result != ERR_LOW_BALANCE, "insufficient collateral balance");
+
+        // check no value condition
+        require(result != ERR_NO_VALUE, "token has no value");
+
+        // check low balance condition
+        require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value remains");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_ERROR, "unexpected failure");
+    }
+
+    // withdrawMax tries to subtracts maximum of deposited collateral token from the contract
+    // it can to still satisfy the required collateral ratio.
+    function withdrawMax(address _token) public nonReentrant returns (uint256) {
+        return _withdrawMax(_token);
+    }
+
+    // _withdrawMax (internal) does the collateral decrease job to the lowest possible
+    // collateral value calculated for the current price conditions and debt to collateral
+    // ratio situation of the account.
+    function _withdrawMax(address _token) internal returns (uint256) {
+        // how much we can get out?
+        uint256 balance = getCollateralPool().balanceOf(msg.sender, _token);
+        uint256 min = getMinCollateralAmount(msg.sender, _token);
+
+        // anything available?
+        if (balance <= min) {
+            // we have done what we could, collateral can not
+            // be decreased at all
+            return ERR_NO_ERROR;
+        }
+
+        // do the withdraw
+        return _withdraw(_token, balance.sub(min));
     }
 }

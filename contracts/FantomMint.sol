@@ -49,19 +49,19 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // collateral value and debt value allowed for the user.
     // User can not withdraw his collateral if the active ratio would
     // drop below this value.
-    function getCollateralLowestDebtRatio4dec () public view returns (uint256) {
+    function getCollateralLowestDebtRatio4dec() public view returns (uint256) {
         return collateralLowestDebtRatio4dec;
     }
 
     // getRewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
     // to be able to receive rewards.
-    function getRewardEligibilityRatio4dec () public view returns (uint256) {
+    function getRewardEligibilityRatio4dec() public view returns (uint256) {
         return rewardEligibilityRatio4dec;
     }
 
     // getFMintFee4dec represents the current percentage of the created tokens
     // captured as a fee.
-    function getFMintFee4dec () public view returns (uint256) {
+    function getFMintFee4dec() public view returns (uint256) {
         return fMintFee4dec;
     }
 
@@ -112,6 +112,18 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         return debtCanIncrease(_account, _token, _amount);
     }
 
+    // getMinCollateralAmount calculates the minimal amount of given token collateral
+    // which will satisfy the minimal collateral to debt ratio.
+    function getMinCollateralAmount(address _account, address _token) public view returns (uint256) {
+        return minCollateralAmount(_account, _token);
+    }
+
+    // getMaxDebtAmount calculates the maximum amount of given token debt
+    // which will satisfy the minimal collateral to debt ratio.
+    function getMaxDebtAmount(address _account, address _token) public view returns (uint256) {
+        return maxDebtAmount(_account, _token);
+    }
+
     // -------------------------------------------------------------
     // Reward update events routing
     // -------------------------------------------------------------
@@ -133,12 +145,15 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         return addressProvider.getPriceOracleProxy().getPrice(_token);
     }
 
-    // getPriceDigitsCorrection returns the correction to the calculated
-    // ERC20 token value to correct exchange rate digits correction.
-    function getPriceDigitsCorrection(address _token) public view returns (uint256) {
-        // get the value from the token registry
-        // consider caching it until future protoSync() to save some gas from external call
-        return 10**uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
+    // getExtendedPrice returns the price of given ERC20 token using on-chain oracle
+    // expression of an exchange rate between the token and base denomination and also
+    // the number of digits of the price.
+    function getExtendedPrice(address _token) public view returns (uint256 _price, uint256 _digits) {
+        // use linked price oracle aggregate to get the token exchange price
+        _price = addressProvider.getPriceOracleProxy().getPrice(_token);
+        _digits = 10 ** uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
+
+        return (_price, _digits);
     }
 
     // collateralTokenValue calculates the value of the given collateral amount of the token specified.

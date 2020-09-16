@@ -23,10 +23,6 @@ contract FantomMintConfig is Ownable
     // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
     uint256 public fMintFee4dec = 50;
 
-    // fMintFeeDigitsCorrection represents the value to be used
-    // to adjust result decimals after applying fee to a value calculation.
-    uint256 public fMintFeeDigitsCorrection = 10000;
-
     // -------------------------------------------------------------
     // Events emitted on update
     // -------------------------------------------------------------
