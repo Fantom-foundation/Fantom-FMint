@@ -154,10 +154,8 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         // calculate the current reward per token value globally
         rewardUpdateGlobal();
 
-        // is the account eligible to receive this reward at all?
-        if (rewardIsEligible(_account)) {
-            rewardStash[_account] = rewardEarned(_account);
-        }
+        // stash earned rewards, if any
+        rewardStash[_account] = rewardEarned(_account);
 
         // adjust paid part of the accumulated reward
         // if the account is not eligible to receive reward up to this point
@@ -203,6 +201,13 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // for right now based on its collateral balance value and the total value
     // of all collateral tokens in the system
     function rewardEarned(address _account) public view returns (uint256) {
+        // the account must meet reward conditions to get any
+        // we require then to have collateral to debt ration over 500%
+        // by default
+        if (!rewardIsEligible(_account)) {
+            return 0;
+        }
+
         // calculate earned rewards based on the account share on the total
         // principal balance expressed in the rewardPerToken() value
         return principalBalanceOf(_account)
