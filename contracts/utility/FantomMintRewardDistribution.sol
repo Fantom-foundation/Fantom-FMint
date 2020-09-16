@@ -141,11 +141,13 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     	// make sure the amount makes sense
     	require(_perSecond > 0, "invalid reward rate");
 
-        // do the final push before the rewards get updated
-        // new rate per second will be applied after the update
+        // Do the final push before the rewards get updated.
+        // New rate per second will be applied after the update
         // so we wanted to make sure all the previous rewards
-        // have been pushed with the old rate before updating
-        _rewardPush();
+        // have been pushed with the old rate before updating.
+        // Make sure there is enough balance to do so. We don't
+        // check for other errors, since they are not important here.
+        require(_rewardPush() != ERR_REWARDS_DEPLETED, "balance too low");
 
     	// store new value for rewards per second
     	rewardPerSecond = _perSecond;
