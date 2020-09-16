@@ -32,7 +32,7 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
 
     // MinRewardPushInterval represents the minimal amount of time between
     // two consecutive reward push calls.
-    uint256 public constant minRewardPushInterval = 2 days;
+    uint256 public constant minRewardPushInterval = 1 hours;
 
     // ---------------------------------------------------------------------
     // State variables
@@ -98,23 +98,39 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     		return ERR_REWARDS_EARLY;
     	}
 
-    	// how much is unlocked and waiting in the reward pool?
-    	uint256 amount = now.sub(lastRewardPush).mul(rewardPerSecond);
-    	if (amount == 0) {
-    		return ERR_REWARDS_NONE;
-    	}
+        // do the pushing
+        return _rewardPush();
+    }
 
-    	// check the manager account balance on the reward pool
-    	// to make sure these rewards can be distributed
-    	if (amount > rewardTokenAddress().balanceOf(address(this))) {
-    		return ERR_REWARDS_DEPLETED;
-    	}
+    // _rewardPush does the pushing internally
+    // NOTE: We don't check for the time restriction here since it's
+    // called on the reward rate update only and we need to always
+    // calculate the old rewards amount before updating.
+    function _rewardPush() internal returns (uint256) {
+        // if this is the first push, simply reset state and return
+        // no rewards will be notified since none existed before this
+        if (0 == lastRewardPush) {
+            lastRewardPush = now;
+            return ERR_NO_ERROR;
+        }
 
-    	// update the time stamp
-    	lastRewardPush = now;
+        // how much is unlocked and waiting in the reward pool?
+        uint256 amount = now.sub(lastRewardPush).mul(rewardPerSecond);
+        if (amount == 0) {
+            return ERR_REWARDS_NONE;
+        }
 
-    	// notify the amount to the Reward Management (internal call)
-    	rewardNotifyAmount(amount);
+        // check the manager account balance on the reward pool
+        // to make sure these rewards can be distributed
+        if (amount > rewardTokenAddress().balanceOf(address(this))) {
+            return ERR_REWARDS_DEPLETED;
+        }
+
+        // update the time stamp
+        lastRewardPush = now;
+
+        // notify the amount to the Reward Management (internal call)
+        rewardNotifyAmount(amount);
 
         // all done
         return ERR_NO_ERROR;
@@ -124,6 +140,12 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     function rewardUpdateRate(uint256 _perSecond) external onlyOwner {
     	// make sure the amount makes sense
     	require(_perSecond > 0, "invalid reward rate");
+
+        // do the final push before the rewards get updated
+        // new rate per second will be applied after the update
+        // so we wanted to make sure all the previous rewards
+        // have been pushed with the old rate before updating
+        _rewardPush();
 
     	// store new value for rewards per second
     	rewardPerSecond = _perSecond;
