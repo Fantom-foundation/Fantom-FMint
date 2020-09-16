@@ -141,8 +141,10 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
         // loop all registered debt tokens
         for (uint i = 0; i < tokens.length; i++) {
-            // advance the result by the value of current token balance of this token
-            if (_token == tokens[i]) {
+            // advance the result by the value of current token balance of this token.
+            // Make sure to stay on safe size with the _sub deduction, we don't
+            // want to drop balance to sub-zero amount, that would freak out the SafeMath.
+            if (_token == tokens[i] && (balance[_account][tokens[i]] >= _sub)) {
                 // add adjusted token balance converted to value
                 value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]].add(_add).sub(_sub)));
                 adjusted = true;
