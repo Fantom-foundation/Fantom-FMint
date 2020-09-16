@@ -152,9 +152,10 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
             }
         }
 
-        // if the token is valid, but it has not been added to the final value
-        // add it now; we can not deduct tokens we don't have here
-        // should we revert if the token has no value here?
+        // if the token is valid, but it has not been added to the final value yet,
+        // add it now.
+        // We can not deduct tokens we don't have, so check the _add to _sub.
+        // Should we revert if the token has no value here?
         if (!adjusted && (address(0x0) != _token) && (_add > _sub)) {
             value = value.add(tokenValue(_token, _add.sub(_sub)));
         }
