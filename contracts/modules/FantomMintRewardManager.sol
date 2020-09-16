@@ -29,7 +29,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
     // rewardPerTokenDecimalsCorrection represents the correction done on rewards per token
     // so the calculation does not loose precision on very low reward rates and high collateral
     // balance in the system.
-    uint256 public constant rewardPerTokenDecimalsCorrection = 1e6;
+    uint256 public constant rewardPerTokenDecimalsCorrection = 1e18;
 
     // -------------------------------------------------------------
     // Rewards distribution related state

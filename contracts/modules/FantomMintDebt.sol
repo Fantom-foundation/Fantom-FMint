@@ -71,6 +71,10 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool);
 
+    // getMaxDebtAmount (abstract) calculates the maximum amount of given token debt
+    // which will satisfy the minimal collateral to debt ratio.
+    function getMaxDebtAmount(address _account, address _token) public view returns (uint256);
+
     // -------------------------------------------------------------
     // Debt management functions below, the actual minter work
     // -------------------------------------------------------------
@@ -159,6 +163,55 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
         return ERR_NO_ERROR;
     }
 
+    // mustMintMax tries to increase the debt by maxim allowed amount to stoll satisfy
+    // the required debt to collateral ratio. It reverts the transaction if the fails.
+    function mustMintMax(address _token) public nonReentrant {
+        // try to withdraw max amount of tokens allowed
+        uint256 result = _mintMax(_token);
+
+        // check zero amount condition
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check low amount condition (fee to amount check)
+        require(result != ERR_LOW_AMOUNT, "amount too low");
+
+        // check minting now enabled for the token condition
+        require(result != ERR_MINTING_PROHIBITED, "minting of the token prohibited");
+
+        // check no value condition
+        require(result != ERR_NO_VALUE, "token has no value");
+
+        // check low collateral ratio condition
+        require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_ERROR, "unexpected failure");
+    }
+
+    // mintMax tries to increase the debt by maxim allowed amount to stoll satisfy
+    // the required debt to collateral ratio.
+    function mintMax(address _token) public nonReentrant returns (uint256) {
+        return _mintMax(_token);
+    }
+
+    // _mintMax (internal) does the actual minting of tokens. It tries to mix as much
+    // as possible and still obey the minimal collateral to debt ratio.
+    function _mintMax(address _token) internal returns (uint256) {
+        // how much we can get out?
+        uint256 balance = getDebtPool().balanceOf(msg.sender, _token);
+        uint256 max = getMaxDebtAmount(msg.sender, _token);
+
+        // anything available?
+        if (balance >= max) {
+            // we have done what we could, debt can not
+            // be increased at all
+            return ERR_NO_ERROR;
+        }
+
+        // do the minting
+        return _mint(_token, max.sub(balance));
+    }
+
     // mustRepay (wrapper) tries to lower the debt on account by given amount
     // and reverts on failure.
     function mustRepay(address _token, uint256 _amount) public nonReentrant {
@@ -194,7 +247,7 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
         }
 
         // get the pool address
-        IFantomDeFiTokenStorage pool = IFantomDeFiTokenStorage(getDebtPool());
+        IFantomDeFiTokenStorage pool = getDebtPool();
 
         // make sure there is enough debt on the token specified (if any at all)
         if (_amount > pool.balanceOf(msg.sender, _token)) {
@@ -221,5 +274,44 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
         // success
         return ERR_NO_ERROR;
+    }
+
+    // mustRepayMax allows user to return as much of the debt of the specified token
+    // as possible. If the transaction fails, it reverts.
+    function mustRepayMax(address _token) public nonReentrant {
+        // try to repay
+        uint256 result = _repayMax(_token);
+
+        // check zero amount condition
+        require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
+
+        // check low balance condition
+        require(result != ERR_LOW_BALANCE, "insufficient debt outstanding");
+
+        // check low allowance condition
+        require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
+
+        // sanity check for any non-covered condition
+        require(result == ERR_NO_ERROR, "unexpected failure");
+    }
+
+    // repayMax allows user to return as much of the debt of the specified token
+    // as possible.
+    function repayMax(address _token) public nonReentrant returns (uint256) {
+        return _repayMax(_token);
+    }
+
+    // _repayMax (internal) reduces the token debt by maximal amount
+    // possible under the given situation.
+    // NOTE: Allowance for burning is still required to be high enough
+    // to allow the operation.
+    function _repayMax(address _token) internal returns (uint256)
+    {
+        // get the debt size, available tokens
+        uint256 poolBalance = getDebtPool().balanceOf(msg.sender, _token);
+        uint256 ercBalance = ERC20(_token).balanceOf(msg.sender);
+
+        // success
+        return _repay(_token, Math.min(poolBalance, ercBalance));
     }
 }

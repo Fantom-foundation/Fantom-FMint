@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/IFantomMintBalanceGuard.sol";
+import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "./FantomMintErrorCodes.sol";
 
 // FantomMintBalanceGuard implements a calculation of different rate steps
@@ -62,6 +63,85 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
 
     // collateralTokenValue (abstract) calculates the value of the given collateral amount of the token specified.
     function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256);
+
+    // getExtendedPrice returns the price of given ERC20 token using on-chain oracle
+    // expression of an exchange rate between the token and base denomination
+    // and the number of digits of the price.
+    function getExtendedPrice(address _token) public view returns (uint256, uint256);
+
+    // getCollateralPool (abstract) returns the address of collateral pool.
+    function getCollateralPool() public view returns (IFantomDeFiTokenStorage);
+
+    // getDebtPool (abstract) returns the address of debt pool.
+    function getDebtPool() public view returns (IFantomDeFiTokenStorage);
+
+    // -------------------------------------------------------------
+    // Limits of collateral and debt calculations
+    // -------------------------------------------------------------
+
+    // minCollateralAmount calculates the minimal amount of given token collateral
+    // which will satisfy the minimal collateral to debt ratio.
+    // If the account is under-collateralized, it returns the required
+    // amount of tokens to balance the account.
+    function minCollateralAmount(address _account, address _token) public view returns (uint256) {
+        // get token price, make sure not to divide by zero
+        (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
+        require(_price != 0, "collateral token has no value");
+
+        // calculate current collateral and debt situation
+        uint256 cDebtValue = debtValueOf(_account);
+        uint256 cCollateralValue = collateralValueOf(_account);
+
+        // get the current balance of the tokens
+        uint256 balance = getCollateralPool().balanceOf(_account, _token);
+
+        // what is the minimal collateral value required?
+        uint256 minCollateralValue = cDebtValue
+        .mul(getCollateralLowestDebtRatio4dec())
+        .div(collateralRatioDecimalsCorrection);
+
+        // check if we are safely over the required collateral ratio
+        if (minCollateralValue > cCollateralValue) {
+            // under-collateralized! calculate how much of this token we need
+            // to balance the account to required collateral ratio
+            return balance.add(minCollateralValue.sub(cCollateralValue).mul(_digits).div(_price));
+        }
+
+        // calculate the excessive value, convert it to the amount of tokens using price
+        // and reduce the balance by that amount to get the min amount of tokens allowed
+        return balance.sub(cCollateralValue.sub(minCollateralValue).mul(_digits).div(_price));
+    }
+
+    // maxDebtAmount calculates the maximal amount of given token debt
+    // which will satisfy the minimal collateral to debt ratio.
+    function maxDebtAmount(address _account, address _token) public view returns (uint256) {
+        // get token price, make sure not to divide by zero
+        (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
+        require(_price != 0, "collateral token has no value");
+
+        // calculate current collateral and debt situation
+        uint256 cDebtValue = debtValueOf(_account);
+        uint256 cCollateralValue = collateralValueOf(_account);
+
+        // get the current balance of the tokens
+        uint256 balance = getDebtPool().balanceOf(_account, _token);
+
+        // what's the largest possible debt value allowed?
+        uint256 maxDebtValue = cCollateralValue
+        .mul(collateralRatioDecimalsCorrection)
+        .div(getCollateralLowestDebtRatio4dec());
+
+        // check if we are safely over the required collateral ratio
+        if (maxDebtValue < cDebtValue) {
+            // under-collateralized! calculate how much of this token we need
+            // to repay to balance the account to required collateral ratio
+            return balance.sub(cDebtValue.sub(maxDebtValue).mul(_digits).div(_price));
+        }
+
+        // calculate the excessive value, convert it to the amount of tokens using price
+        // and increase the debt by that amount to get the max amount of tokens allowed
+        return balance.add(maxDebtValue.sub(cDebtValue).mul(_digits).div(_price));
+    }
 
     // -------------------------------------------------------------
     // Collateral to debt ratio checks below
