@@ -73,8 +73,8 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
 
         // get the token price and price digits correction
         // NOTE: We may want to cache price decimals to save some gas on subsequent calls.
-        uint256 price = IPriceOracleProxy(addressProvider.getPriceOracleProxy()).getPrice(_token);
-        uint256 priceDigitsCorrection = 10**uint256(IFantomMintTokenRegistry(addressProvider.getTokenRegistry()).priceDecimals(_token));
+        uint256 price = addressProvider.getPriceOracleProxy().getPrice(_token);
+        uint256 priceDigitsCorrection = 10 ** uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
 
         // calculate the value and adjust for the dust
         value = _amount.mul(price).div(priceDigitsCorrection);
@@ -100,19 +100,66 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     }
 
     // totalOf returns the value of current balance of specified account.
-    function totalOf(address _account) public view returns (uint256 value) {
-        // loop all registered debt tokens
-        for (uint i = 0; i < tokens.length; i++) {
-            // advance the result by the value of current token balance of this token
-            value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
+    function totalOf(address _account) public view returns (uint256) {
+        return _totalOf(_account, address(0x0), 0, 0);
+    }
+
+    // totalOfInc returns the value of current balance of an account
+    // with specified token balance increased by given amount of tokens.
+    function totalOfInc(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
+        // make sure the token is known
+        if (!isKnownToken(_token)) {
+            return totalOf(_account);
         }
 
-        return value;
+        // calculate the total with token balance adjusted up
+        return _totalOf(_account, _token, _amount, 0);
+    }
+
+    // totalOfDec returns the value of current balance of an account
+    // with specified token balance decreased by given amount of tokens.
+    function totalOfDec(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
+        // make sure the token is known
+        if (!isKnownToken(_token)) {
+            return totalOf(_account);
+        }
+
+        // calculate the total with token balance adjusted down
+        return _totalOf(_account, _token, 0, _amount);
     }
 
     // balanceOf returns the balance of the given token on the given account.
     function balanceOf(address _account, address _token) public view returns (uint256) {
         return balance[_account][_token];
+    }
+
+    // _totalOf calculates the value of given account with specified token balance adjusted
+    // either up, or down, based on given extra values
+    function _totalOf(address _account, address _token, uint256 _add, uint256 _sub) internal view returns (uint256 value) {
+        // track the adjustment so we can add it as a new token if needed
+        bool adjusted = false;
+
+        // loop all registered debt tokens
+        for (uint i = 0; i < tokens.length; i++) {
+            // advance the result by the value of current token balance of this token
+            if (_token == tokens[i]) {
+                // add adjusted token balance converted to value
+                value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]].add(_add).sub(_sub)));
+                adjusted = true;
+            } else {
+                // simply add the token balance converted to value as-is
+                value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
+            }
+        }
+
+        // if the token is valid, but it has not been added to the final value
+        // add it now; we can not deduct tokens we don't have here
+        // should we revert if the token has no value here?
+        if (!adjusted && (address(0x0) != _token) && (_add > _sub)) {
+            value = value.add(tokenValue(_token, _add.sub(_sub)));
+        }
+
+        return value;
     }
 
     // -------------------------------------------------------------
@@ -168,5 +215,11 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // tokensCount returns the number of tokens enrolled to the list.
     function tokensCount() public view returns (uint256) {
         return tokens.length;
+    }
+
+    // isKnownToken checks if the given token is known to the protocol
+    // and can be added to storage.
+    function isKnownToken(address _token) internal view returns (bool) {
+        return 0 < addressProvider.getTokenRegistry().priceDecimals(_token);
     }
 }

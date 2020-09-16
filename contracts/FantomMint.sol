@@ -69,16 +69,6 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // Pool balances and values
     // -------------------------------------------------------------
 
-    // debtValueOf returns the value of account debt.
-    function debtValueOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getDebtPool()).totalOf(_account);
-    }
-
-    // collateralValueOf returns the value of account collateral.
-    function collateralValueOf(address _account) public view returns (uint256) {
-        return IFantomDeFiTokenStorage(addressProvider.getCollateralPool()).totalOf(_account);
-    }
-
     // getCollateralPool returns the address of collateral pool.
     function getCollateralPool() public view returns (IFantomDeFiTokenStorage) {
         return addressProvider.getCollateralPool();
@@ -110,6 +100,30 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // without breaking collateral to debt ratio rule.
     function checkDebtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         return debtCanIncrease(_account, _token, _amount);
+    }
+
+    // debtValueOf returns the value of account debt.
+    function debtValueOf(address _account, address _token, uint256 _add) public view returns (uint256) {
+        // do we have a request to calculate increased debt value?
+        if ((0 != _add) && (address(0x0) != _token)) {
+            // return current value with increased balance on given token
+            return addressProvider.getDebtPool().totalOfInc(_account, _token, _add);
+        }
+
+        // return current debt value as-is
+        return addressProvider.getDebtPool().totalOf(_account);
+    }
+
+    // collateralValueOf returns the value of account collateral.
+    function collateralValueOf(address _account, address _token, uint256 _sub) public view returns (uint256) {
+        // do we have a request to calculate decreased collateral value?
+        if ((0 != _sub) && (address(0x0) != _token)) {
+            // return current value with reduced balance on given token
+            return addressProvider.getCollateralPool().totalOfDec(_account, _token, _sub);
+        }
+
+        // return current collateral value as-is
+        return addressProvider.getCollateralPool().totalOf(_account);
     }
 
     // getMinCollateralAmount calculates the minimal amount of given token collateral
@@ -154,15 +168,5 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         _digits = 10 ** uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
 
         return (_price, _digits);
-    }
-
-    // collateralTokenValue calculates the value of the given collateral amount of the token specified.
-    function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        return addressProvider.getCollateralPool().tokenValue(_token, _amount);
-    }
-
-    // debtTokenValue calculates the value of the given debt amount of the token specified.
-    function debtTokenValue(address _token, uint256 _amount) public view returns (uint256) {
-        return addressProvider.getDebtPool().tokenValue(_token, _amount);
     }
 }

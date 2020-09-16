@@ -53,16 +53,10 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // -------------------------------------------------------------
 
     // debtValueOf (abstract) returns the value of account debt.
-    function debtValueOf(address _account) public view returns (uint256);
+    function debtValueOf(address _account, address _token, uint256 _add) public view returns (uint256);
 
     // collateralValueOf (abstract) returns the value of account collateral.
-    function collateralValueOf(address _account) public view returns (uint256);
-
-    // debtTokenValue (abstract) calculates the value of the given debt amount of the token specified.
-    function debtTokenValue(address _token, uint256 _amount) public view returns (uint256);
-
-    // collateralTokenValue (abstract) calculates the value of the given collateral amount of the token specified.
-    function collateralTokenValue(address _token, uint256 _amount) public view returns (uint256);
+    function collateralValueOf(address _account, address _token, uint256 _sub) public view returns (uint256);
 
     // getExtendedPrice returns the price of given ERC20 token using on-chain oracle
     // expression of an exchange rate between the token and base denomination
@@ -89,8 +83,8 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         require(_price != 0, "collateral token has no value");
 
         // calculate current collateral and debt situation
-        uint256 cDebtValue = debtValueOf(_account);
-        uint256 cCollateralValue = collateralValueOf(_account);
+        uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
+        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
 
         // get the current balance of the tokens
         uint256 balance = getCollateralPool().balanceOf(_account, _token);
@@ -120,8 +114,8 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         require(_price != 0, "collateral token has no value");
 
         // calculate current collateral and debt situation
-        uint256 cDebtValue = debtValueOf(_account);
-        uint256 cCollateralValue = collateralValueOf(_account);
+        uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
+        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
 
         // get the current balance of the tokens
         uint256 balance = getDebtPool().balanceOf(_account, _token);
@@ -150,12 +144,12 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // isCollateralSufficient checks if collateral value is sufficient
     // to cover the debt (collateral to debt ratio) after
     // predefined adjustments to the collateral and debt values.
-    function isCollateralSufficient(address _account, uint256 subCollateral, uint256 addDebt, uint256 ratio) internal view returns (bool) {
+    function isCollateralSufficient(address _account, address _token, uint256 _subCollateral, uint256 _addDebt, uint256 ratio) internal view returns (bool) {
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts including
         // given adjustments to both values as requested.
-        uint256 cDebtValue = debtValueOf(_account).add(addDebt);
-        uint256 cCollateralValue = collateralValueOf(_account).sub(subCollateral);
+        uint256 cDebtValue = debtValueOf(_account, _token, _addDebt);
+        uint256 cCollateralValue = collateralValueOf(_account, _token, _subCollateral);
 
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
@@ -171,25 +165,25 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // without breaking collateral to debt ratio rule.
     function collateralCanDecrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after collateral decrease
-        return isCollateralSufficient(_account, collateralTokenValue(_token, _amount), 0, getCollateralLowestDebtRatio4dec());
+        return isCollateralSufficient(_account, _token, _amount, 0, getCollateralLowestDebtRatio4dec());
     }
 
     // debtCanIncrease checks if the specified amount of debt can be added to the account
     // without breaking collateral to debt ratio rule.
     function debtCanIncrease(address _account, address _token, uint256 _amount) public view returns (bool) {
         // collateral to debt ratio must be valid after debt increase
-        return isCollateralSufficient(_account, 0, debtTokenValue(_token, _amount), getCollateralLowestDebtRatio4dec());
+        return isCollateralSufficient(_account, _token, 0, _amount, getCollateralLowestDebtRatio4dec());
     }
 
     // rewardCanClaim checks if the account can claim accumulated rewards
     // by being on a high enough collateral to debt ratio.
     // Implements abstract function of the <FantomMintRewardManager>.
     function rewardCanClaim(address _account) external view returns (bool) {
-        return isCollateralSufficient(_account, 0, 0, getCollateralLowestDebtRatio4dec());
+        return isCollateralSufficient(_account, address(0x0), 0, 0, getCollateralLowestDebtRatio4dec());
     }
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
     function rewardIsEligible(address _account) external view returns (bool) {
-        return isCollateralSufficient(_account, 0, 0, getRewardEligibilityRatio4dec());
+        return isCollateralSufficient(_account, address(0x0), 0, 0, getRewardEligibilityRatio4dec());
     }
 }
