@@ -136,9 +136,6 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // _totalOf calculates the value of given account with specified token balance adjusted
     // either up, or down, based on given extra values
     function _totalOf(address _account, address _token, uint256 _add, uint256 _sub) internal view returns (uint256 value) {
-        // track the adjustment so we can add it as a new token if needed
-        bool adjusted = false;
-
         // loop all registered debt tokens
         for (uint i = 0; i < tokens.length; i++) {
             // advance the result by the value of current token balance of this token.
@@ -147,19 +144,30 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
             if (_token == tokens[i] && (balance[_account][tokens[i]] >= _sub)) {
                 // add adjusted token balance converted to value
                 value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]].add(_add).sub(_sub)));
-                adjusted = true;
+
+                // we consumed the adjustment and can reset it
+                _add = 0;
+                _sub = 0;
             } else {
                 // simply add the token balance converted to value as-is
                 value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
             }
         }
 
-        // if the token is valid, but it has not been added to the final value yet,
-        // add it now.
-        // We can not deduct tokens we don't have, so check the _add to _sub.
-        // Should we revert if the token has no value here?
-        if (!adjusted && (address(0x0) != _token) && (_add > _sub)) {
-            value = value.add(tokenValue(_token, _add.sub(_sub)));
+        // do we have an adjustment token to worry about?
+        // if not, just return what we've got.
+        if (_token == address(0x0)) {
+            return value;
+        }
+
+        // apply increase adjustment if it still remains
+        if (_add != 0) {
+            value = value.add(tokenValue(_token, _add));
+        }
+
+        // apply subtraction adjustment if it still remains
+        if (_sub != 0) {
+            value = value.sub(tokenValue(_token, _sub));
         }
 
         return value;
