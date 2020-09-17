@@ -38,9 +38,9 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
     IFantomMintAddressProvider public addressProvider;
 
     // initialize initializes the contract properly before the first use.
-    function initialize(address owner, address addressProvider) public initializer {
+    function initialize(address owner, address _addressProvider) public initializer {
         // remember the address provider connecting satellite contracts to the minter
-        addressProvider = IFantomMintAddressProvider(addressProvider);
+        addressProvider = IFantomMintAddressProvider(_addressProvider);
 
         // init the underlying party
         FantomMintConfig.initialize(owner);
