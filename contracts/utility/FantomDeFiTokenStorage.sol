@@ -107,11 +107,6 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // totalOfInc returns the value of current balance of an account
     // with specified token balance increased by given amount of tokens.
     function totalOfInc(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
-        // make sure the token is known
-        if (!isKnownToken(_token)) {
-            return totalOf(_account);
-        }
-
         // calculate the total with token balance adjusted up
         return _totalOf(_account, _token, _amount, 0);
     }
@@ -119,11 +114,6 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // totalOfDec returns the value of current balance of an account
     // with specified token balance decreased by given amount of tokens.
     function totalOfDec(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
-        // make sure the token is known
-        if (!isKnownToken(_token)) {
-            return totalOf(_account);
-        }
-
         // calculate the total with token balance adjusted down
         return _totalOf(_account, _token, 0, _amount);
     }
@@ -152,12 +142,6 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
                 // simply add the token balance converted to value as-is
                 value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
             }
-        }
-
-        // do we have an adjustment token to worry about?
-        // if not, just return what we've got.
-        if (_token == address(0x0)) {
-            return value;
         }
 
         // apply increase adjustment if it still remains
@@ -226,11 +210,5 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // tokensCount returns the number of tokens enrolled to the list.
     function tokensCount() public view returns (uint256) {
         return tokens.length;
-    }
-
-    // isKnownToken checks if the given token is known to the protocol
-    // and can be added to storage.
-    function isKnownToken(address _token) internal view returns (bool) {
-        return 0 < addressProvider.getTokenRegistry().priceDecimals(_token);
     }
 }
