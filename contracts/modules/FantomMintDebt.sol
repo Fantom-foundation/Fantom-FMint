@@ -67,9 +67,9 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // canMint checks if the given token can be minted in the fMint protocol.
     function canMint(address _token) public view returns (bool);
 
-    // getMaxDebtAmount (abstract) calculates the maximum amount of given token debt
-    // which will satisfy the minimal collateral to debt ratio.
-    function getMaxDebtAmount(address _account, address _token) public view returns (uint256);
+    // getMaxToMint (abstract) calculates the maximum amount of given token
+    // which will satisfy the given collateral to debt ratio, if added.
+    function getMaxToMint(address _account, address _token, uint256 _ratio) public view returns (uint256);
 
     // -------------------------------------------------------------
     // Debt management functions below, the actual minter work
@@ -161,9 +161,9 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
     // mustMintMax tries to increase the debt by maxim allowed amount to stoll satisfy
     // the required debt to collateral ratio. It reverts the transaction if the fails.
-    function mustMintMax(address _token) public nonReentrant {
+    function mustMintMax(address _token, uint256 _ratio) public nonReentrant {
         // try to withdraw max amount of tokens allowed
-        uint256 result = _mintMax(_token);
+        uint256 result = _mintMax(_token, _ratio);
 
         // check zero amount condition
         require(result != ERR_ZERO_AMOUNT, "non-zero amount expected");
@@ -186,26 +186,14 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
 
     // mintMax tries to increase the debt by maxim allowed amount to stoll satisfy
     // the required debt to collateral ratio.
-    function mintMax(address _token) public nonReentrant returns (uint256) {
-        return _mintMax(_token);
+    function mintMax(address _token, uint256 _ratio) public nonReentrant returns (uint256) {
+        return _mintMax(_token, _ratio);
     }
 
-    // _mintMax (internal) does the actual minting of tokens. It tries to mix as much
-    // as possible and still obey the minimal collateral to debt ratio.
-    function _mintMax(address _token) internal returns (uint256) {
-        // how much we can get out?
-        uint256 balance = getDebtPool().balanceOf(msg.sender, _token);
-        uint256 max = getMaxDebtAmount(msg.sender, _token);
-
-        // anything available?
-        if (balance >= max) {
-            // we have done what we could, debt can not
-            // be increased at all
-            return ERR_NO_ERROR;
-        }
-
-        // do the minting
-        return _mint(_token, max.sub(balance));
+    // _mintMax (internal) does the actual minting of tokens. It tries to mint as much
+    // as possible and still obey the given collateral to debt ratio.
+    function _mintMax(address _token, uint256 _ratio) internal returns (uint256) {
+        return _mint(_token, getMaxToMint(msg.sender, _token, _ratio));
     }
 
     // mustRepay (wrapper) tries to lower the debt on account by given amount

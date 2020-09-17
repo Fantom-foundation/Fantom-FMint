@@ -73,11 +73,25 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // Limits of collateral and debt calculations
     // -------------------------------------------------------------
 
-    // minCollateralAmount calculates the minimal amount of given token collateral
-    // which will satisfy the minimal collateral to debt ratio.
-    // If the account is under-collateralized, it returns the required
-    // amount of tokens to balance the account.
-    function minCollateralAmount(address _account, address _token) public view returns (uint256) {
+    // maxToWithdraw calculates the max amount of tokens account can withdraw
+    // and still obey the given debt to collateral ratio.
+    function maxToWithdraw(address _account, address _token, uint256 _ratio) public view returns (uint256) {
+        // how many tokens the account has now
+        uint256 balance = getCollateralPool().balanceOf(_account, _token);
+
+        // what is the top withdraw amount
+        uint256 max = _maxToWithdraw(_account, _token, _ratio);
+
+        // can the account withdraw them all?
+        if (balance < max) {
+            return balance;
+        }
+        return max;
+    }
+
+    // _maxToWithdraw calculates the max amount of the given token the account can withdraw
+    // safely and still obey given debt to collateral ratio.
+    function _maxToWithdraw(address _account, address _token, uint256 _ratio) internal view returns (uint256) {
         // get token price, make sure not to divide by zero
         (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
         require(_price != 0, "collateral token has no value");
@@ -85,30 +99,25 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         // calculate current collateral and debt situation
         uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
-
-        // get the current balance of the tokens
-        uint256 balance = getCollateralPool().balanceOf(_account, _token);
 
         // what is the minimal collateral value required?
         uint256 minCollateralValue = cDebtValue
-        .mul(getCollateralLowestDebtRatio4dec())
+        .mul(_ratio)
         .div(collateralRatioDecimalsCorrection);
 
         // check if we are safely over the required collateral ratio
-        if (minCollateralValue > cCollateralValue) {
-            // under-collateralized! calculate how much of this token we need
-            // to balance the account to required collateral ratio
-            return balance.add(minCollateralValue.sub(cCollateralValue).mul(_digits).div(_price));
+        if (cCollateralValue < minCollateralValue) {
+            return 0;
         }
 
-        // calculate the excessive value, convert it to the amount of tokens using price
-        // and reduce the balance by that amount to get the min amount of tokens allowed
-        return balance.sub(cCollateralValue.sub(minCollateralValue).mul(_digits).div(_price));
+        // calculate the excessive value and convert it
+        // to the amount of tokens using price
+        return cCollateralValue.sub(minCollateralValue).mul(_digits).div(_price);
     }
 
-    // maxDebtAmount calculates the maximal amount of given token debt
-    // which will satisfy the minimal collateral to debt ratio.
-    function maxDebtAmount(address _account, address _token) public view returns (uint256) {
+    // minToDeposit calculates the minimal amount of tokens the account needs to deposit
+    // to get over the given collateral to debt ratio.
+    function minToDeposit(address _account, address _token, uint256 _ratio) public view returns (uint256) {
         // get token price, make sure not to divide by zero
         (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
         require(_price != 0, "collateral token has no value");
@@ -117,24 +126,52 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
 
-        // get the current balance of the tokens
-        uint256 balance = getDebtPool().balanceOf(_account, _token);
-
         // what's the largest possible debt value allowed?
-        uint256 maxDebtValue = cCollateralValue
-        .mul(collateralRatioDecimalsCorrection)
-        .div(getCollateralLowestDebtRatio4dec());
+        // what is the minimal collateral value required?
+        uint256 minCollateralValue = cDebtValue
+        .mul(_ratio)
+        .div(collateralRatioDecimalsCorrection);
 
         // check if we are safely over the required collateral ratio
-        if (maxDebtValue < cDebtValue) {
-            // under-collateralized! calculate how much of this token we need
-            // to repay to balance the account to required collateral ratio
-            return balance.sub(cDebtValue.sub(maxDebtValue).mul(_digits).div(_price));
+        // if so, there is no need to add anything to get over
+        if (minCollateralValue < cCollateralValue) {
+            return 0;
         }
 
-        // calculate the excessive value, convert it to the amount of tokens using price
-        // and increase the debt by that amount to get the max amount of tokens allowed
-        return balance.add(maxDebtValue.sub(cDebtValue).mul(_digits).div(_price));
+        // calculate the required extra tokens to be deposited to get
+        // the ratio the call asked for; round all corners up
+        return (minCollateralValue.sub(cCollateralValue).add(1)).mul(_digits).div(_price).add(1);
+    }
+
+    // maxToMint calculates the maximum amount of tokens the address can mint
+    // and still stay safely within the requested collateral to debt ratio.
+    function maxToMint(address _account, address _token, uint256 _ratio) public view returns (uint256) {
+        // get token price, make sure not to divide by zero
+        (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
+        require(_price != 0, "collateral token has no value");
+
+        // calculate current collateral and debt situation\
+        uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
+        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
+
+        // what is the minimal collateral value required?
+        uint256 minCollateralValue = cDebtValue
+        .mul(_ratio)
+        .div(collateralRatioDecimalsCorrection);
+
+        // if the account is under-collateralized already,
+        // no tokens can be added
+        if (cCollateralValue < minCollateralValue) {
+            return 0;
+        }
+
+        // what's the largest possible debt amount allowed?
+        return cCollateralValue
+        .sub(minCollateralValue)
+        .mul(collateralRatioDecimalsCorrection)
+        .div(getCollateralLowestDebtRatio4dec()).sub(1)
+        .mul(_digits)
+        .div(_price);
     }
 
     // -------------------------------------------------------------
@@ -144,7 +181,12 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
     // isCollateralSufficient checks if collateral value is sufficient
     // to cover the debt (collateral to debt ratio) after
     // predefined adjustments to the collateral and debt values.
-    function isCollateralSufficient(address _account, address _token, uint256 _subCollateral, uint256 _addDebt, uint256 ratio) internal view returns (bool) {
+    function isCollateralSufficient(address _account, address _token, uint256 _subCollateral, uint256 _addDebt, uint256 _ratio) internal view returns (bool) {
+        // make sure the call does not try to pull out more than the balance we have
+        if (_subCollateral > getCollateralPool().balanceOf(_account, _token)) {
+            return false;
+        }
+
         // calculate the collateral and debt values in ref. denomination
         // for the current exchange rate and balance amounts including
         // given adjustments to both values as requested.
@@ -154,7 +196,7 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
         uint256 minCollateralValue = cDebtValue
-        .mul(ratio)
+        .mul(_ratio)
         .div(collateralRatioDecimalsCorrection);
 
         // final collateral value must match the minimal value or exceed it

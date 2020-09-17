@@ -126,16 +126,14 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
         return addressProvider.getCollateralPool().totalOf(_account);
     }
 
-    // getMinCollateralAmount calculates the minimal amount of given token collateral
-    // which will satisfy the minimal collateral to debt ratio.
-    function getMinCollateralAmount(address _account, address _token) public view returns (uint256) {
-        return minCollateralAmount(_account, _token);
+    // getMaxToWithdraw returns the max amount of tokens to withdraw with the given ratio.
+    function getMaxToWithdraw(address _account, address _token, uint256 _ratio) public view returns (uint256) {
+        return maxToWithdraw(_account, _token, _ratio);
     }
 
-    // getMaxDebtAmount calculates the maximum amount of given token debt
-    // which will satisfy the minimal collateral to debt ratio.
-    function getMaxDebtAmount(address _account, address _token) public view returns (uint256) {
-        return maxDebtAmount(_account, _token);
+    // getMaxToMint returns the max amount of tokens to mint with the given ratio.
+    function getMaxToMint(address _account, address _token, uint256 _ratio) public view returns (uint256) {
+        return maxToMint(_account, _token, _ratio);
     }
 
     // -------------------------------------------------------------
