@@ -60,10 +60,6 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256);
 
-    // getPriceDigitsCorrection (abstract) returns the correction to the calculated
-    // ERC20 token value to correct exchange rate digits correction.
-    function getPriceDigitsCorrection(address _token) public view returns (uint256);
-
     // rewardUpdate (abstract) notifies the reward distribution to update state
     // of the given account.
     function rewardUpdate(address _account) public;
