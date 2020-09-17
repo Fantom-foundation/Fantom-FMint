@@ -1,6 +1,8 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "../interfaces/IFantomMintTokenRegistry.sol";
 import "../interfaces/IERC20Detailed.sol";
 
@@ -12,7 +14,7 @@ import "../interfaces/IERC20Detailed.sol";
 * license MIT
 * author Fantom Foundation, Jiri Malek
 */
-contract FantomMintTokenRegistry is Ownable, IFantomMintTokenRegistry {
+contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegistry {
     // TokenInformation represents a single token handled by the registry.
     // The DeFi API uses this reference to do on-chain tokens tracking.
     struct TokenInformation {
@@ -40,6 +42,12 @@ contract FantomMintTokenRegistry is Ownable, IFantomMintTokenRegistry {
     // TokenUpdated event is emitted when an existing token information is updated.
     event TokenUpdated(address indexed token, string name);
 
+    // initialize initializes the contract properly before the first use.
+    function initialize() public initializer {
+        // init the Ownable
+        Ownable.initialize(msg.sender);
+    }
+
     // ---------------------------------
     // tokens registry view functions
     // ---------------------------------
@@ -61,9 +69,9 @@ contract FantomMintTokenRegistry is Ownable, IFantomMintTokenRegistry {
     }
 
     // canDeposit informs if the specified token can be deposited to collateral pool.
-	function canDeposit(address _token) public view returns (bool) {
+    function canDeposit(address _token) public view returns (bool) {
         return tokens[_token].canDeposit;
-	}
+    }
 
     // canMint informs if the specified token can be minted in Fantom DeFi.
     function canMint(address _token) public view returns (bool) {
@@ -99,16 +107,16 @@ contract FantomMintTokenRegistry is Ownable, IFantomMintTokenRegistry {
 
         // create and store the token information
         tokens[_token] = TokenInformation({
-            id : tokensList.length,
-            name : _name,
-            symbol : IERC20Detailed(_token).symbol(),
-            decimals : _decimals,
-            logo: _logo,
-            oracle : _oracle,
-            priceDecimals : _priceDecimals,
-            isActive : _isActive,
-            canDeposit : _canDeposit,
-            canMint : _canMint
+        id : tokensList.length,
+        name : _name,
+        symbol : IERC20Detailed(_token).symbol(),
+        decimals : _decimals,
+        logo : _logo,
+        oracle : _oracle,
+        priceDecimals : _priceDecimals,
+        isActive : _isActive,
+        canDeposit : _canDeposit,
+        canMint : _canMint
         });
 
         // inform

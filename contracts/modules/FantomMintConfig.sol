@@ -1,27 +1,39 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
 
 // FantomMintConfig implements the fMint core contract configuration
 // with the ability to fine tune settings by the contract owner.
-contract FantomMintConfig is Ownable
+contract FantomMintConfig is Initializable, Ownable
 {
     // collateralLowestDebtRatio4dec represents the lowest ratio between
     // collateral value and debt value allowed for the user.
     // User can not withdraw his collateral if the active ratio would
     // drop below this value.
     // The value is returned in 4 decimals, e.g. value 30000 = 3.0
-    uint256 public collateralLowestDebtRatio4dec = 30000;
+    uint256 public collateralLowestDebtRatio4dec;
 
     // rewardEligibilityRatio4dec represents the collateral to debt ratio user has to have
     // to be able to receive rewards.
     // The value is kept in 4 decimals, e.g. value 50000 = 5.0
-    uint256 public rewardEligibilityRatio4dec = 50000;
+    uint256 public rewardEligibilityRatio4dec;
 
     // fMintFee represents the current percentage of the created tokens
     // captured as a fee.
     // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
-    uint256 public fMintFee4dec = 50;
+    uint256 public fMintFee4dec;
+
+    // initialize initializes the contract properly before the first use.
+    function initialize() public initializer {
+        // initialize the Ownable
+        Ownable.initialize(msg.sender);
+
+        // initialize default values
+        collateralLowestDebtRatio4dec = 30000;
+        rewardEligibilityRatio4dec = 50000;
+        fMintFee4dec = 50;
+    }
 
     // -------------------------------------------------------------
     // Events emitted on update

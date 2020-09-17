@@ -5,6 +5,8 @@ import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "../interfaces/IPriceOracleProxy.sol";
 import "../interfaces/IFantomMintAddressProvider.sol";
@@ -12,7 +14,7 @@ import "../interfaces/IFantomMintTokenRegistry.sol";
 
 // FantomDeFiTokenStorage implements a token pool used by the Fantom
 // DeFi fMint protocol to track collateral and debt.
-contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
+contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 {
     // define used libs
     using SafeMath for uint256;
@@ -30,20 +32,20 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
     // to round the dust
     bool public valueDustAdjustment;
 
-    // constructor initializes a new instance of the module.
-    constructor(address _addressProvider, bool _dustAdt) public {
-        // keep the address provider connecting contracts together
-        addressProvider = IFantomMintAddressProvider(_addressProvider);
-
-        // keep the dust adjustment to value calculations
-        valueDustAdjustment = _dustAdt;
-    }
-
     // onlyMinter modifier controls access to sensitive functions
     // to allow only calls from fMint Minter contract.
     modifier onlyMinter() {
         require(msg.sender == address(addressProvider.getFantomMint()), "token storage access restricted");
         _;
+    }
+
+    // initialize initializes the instance of the module.
+    function initialize(address _addressProvider, bool _dustAdt) public initializer {
+        // keep the address provider connecting contracts together
+        addressProvider = IFantomMintAddressProvider(_addressProvider);
+
+        // keep the dust adjustment to value calculations
+        valueDustAdjustment = _dustAdt;
     }
 
     // -------------------------------------------------------------
@@ -131,9 +133,14 @@ contract FantomDeFiTokenStorage is IFantomDeFiTokenStorage
             // advance the result by the value of current token balance of this token.
             // Make sure to stay on safe size with the _sub deduction, we don't
             // want to drop balance to sub-zero amount, that would freak out the SafeMath.
-            if (_token == tokens[i] && (balance[_account][tokens[i]] >= _sub)) {
+            if (_token == tokens[i]) {
                 // add adjusted token balance converted to value
-                value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]].add(_add).sub(_sub)));
+                // NOTE: this may revert on underflow if the _sub value exceeds balance,
+                // but it should never happen on normal protocol operations.
+                value = value.add(tokenValue(
+                        tokens[i],
+                        balance[_account][tokens[i]].add(_add).sub(_sub, "token sub exceeds balance")
+                    ));
 
                 // we consumed the adjustment and can reset it
                 _add = 0;

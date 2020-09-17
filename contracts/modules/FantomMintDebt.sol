@@ -8,12 +8,14 @@ import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Mintable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "./FantomMintErrorCodes.sol";
 
 // FantomMintCore implements a calculation of different rate steps
 // between collateral and debt pools to ensure healthy accounts.
-contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
+contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
 {
     // define used libs
     using SafeMath for uint256;
@@ -25,14 +27,14 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // NOTE: No idea what we shall do with the fee pool. Mint and distribute along with rewards maybe?
     mapping(address => uint256) public feePool;
 
-    // getFMintFee4dec (abstract) represents the current percentage of the created tokens
-    // captured as a fee.
-    // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
-    function getFMintFee4dec() public view returns (uint256);
-
     // fMintFeeDigitsCorrection represents the value to be used
     // to adjust result decimals after applying fee to a value calculation.
     uint256 public constant fMintFeeDigitsCorrection = 10000;
+
+    // initialize initializes the contract properly before the first use.
+    function initialize() public initializer {
+        ReentrancyGuard.initialize();
+    }
 
     // -------------------------------------------------------------
     // Emitted events definition
@@ -47,6 +49,11 @@ contract FantomMintDebt is ReentrancyGuard, FantomMintErrorCodes
     // -------------------------------------------------------------
     // Abstract function required for the collateral manager
     // -------------------------------------------------------------
+
+    // getFMintFee4dec (abstract) represents the current percentage of the created tokens
+    // captured as a fee.
+    // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
+    function getFMintFee4dec() public view returns (uint256);
 
     // getDebtPool (abstract) returns the address of debt pool.
     function getDebtPool() public view returns (IFantomDeFiTokenStorage);

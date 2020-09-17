@@ -6,18 +6,25 @@ import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "../interfaces/IFantomMintBalanceGuard.sol";
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "./FantomMintErrorCodes.sol";
 
 // FantomMintCore implements a calculation of different rate steps
 // between collateral and debt pools to ensure healthy accounts.
-contract FantomMintCollateral is ReentrancyGuard, FantomMintErrorCodes
+contract FantomMintCollateral is Initializable, ReentrancyGuard, FantomMintErrorCodes
 {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
     using SafeERC20 for ERC20;
+
+    // initialize initializes the contract properly before the first use.
+    function initialize() public initializer {
+        ReentrancyGuard.initialize();
+    }
 
     // -------------------------------------------------------------
     // Emitted events definition

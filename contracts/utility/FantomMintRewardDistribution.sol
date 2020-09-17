@@ -6,6 +6,8 @@ import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "../interfaces/IFantomMintAddressProvider.sol";
 import "../interfaces/IFantomDeFiTokenStorage.sol";
 import "../interfaces/IFantomMintBalanceGuard.sol";
@@ -19,7 +21,7 @@ import "../modules/FantomMintRewardManager.sol";
 // NOTE: Unlocked rewards can be pushed into the distribution by anyone,
 // participants are motivated to do so to be able to gain
 // the rewards they earned.
-contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
+contract FantomMintRewardDistribution is Initializable, Ownable, FantomMintRewardManager
 {
     // define used libs
     using SafeMath for uint256;
@@ -59,10 +61,13 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     // Instance management and utility functions
     // ---------------------------------------------------------------------
 
-    // create instance of the reward distribution
-    constructor (address _addressProvider) public {
+    // initialize initializes the contract properly before the first use.
+    function initialize(address _addressProvider) public initializer {
         // remember the address provider for the other protocol contracts connection
         addressProvider = IFantomMintAddressProvider(_addressProvider);
+
+        // init the Ownable
+        Ownable.initialize(msg.sender);
     }
 
     // ---------------------------------------------------------------------
@@ -92,11 +97,11 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
     // to the Rewards Manager module to be distributed.
     // NOTE: We don't restrict the call source since it doesn't matter who makes
     // the call, all the calculations are done inside.
-    function rewardPush() public returns(uint256) {
-    	// check if enough time passed from the last distribution
-    	if (now < lastRewardPush.add(minRewardPushInterval)) {
-    		return ERR_REWARDS_EARLY;
-    	}
+    function rewardPush() public returns (uint256) {
+        // check if enough time passed from the last distribution
+        if (now < lastRewardPush.add(minRewardPushInterval)) {
+            return ERR_REWARDS_EARLY;
+        }
 
         // do the pushing
         return _rewardPush();
@@ -138,8 +143,8 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
 
     // rewardUpdateRate modifies the amount of reward unlocked per second
     function rewardUpdateRate(uint256 _perSecond) external onlyOwner {
-    	// make sure the amount makes sense
-    	require(_perSecond > 0, "invalid reward rate");
+        // make sure the amount makes sense
+        require(_perSecond > 0, "invalid reward rate");
 
         // Do the final push before the rewards get updated.
         // New rate per second will be applied after the update
@@ -149,11 +154,11 @@ contract FantomMintRewardDistribution is Ownable, FantomMintRewardManager
         // check for other errors, since they are not important here.
         require(_rewardPush() != ERR_REWARDS_DEPLETED, "balance too low");
 
-    	// store new value for rewards per second
-    	rewardPerSecond = _perSecond;
+        // store new value for rewards per second
+        rewardPerSecond = _perSecond;
 
-    	// notify the change
-    	emit RateUpdated(_perSecond);
+        // notify the change
+        emit RateUpdated(_perSecond);
     }
 
     // rewardCleanup will send the remaining balance of reward tokens

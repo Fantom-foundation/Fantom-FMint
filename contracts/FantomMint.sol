@@ -4,6 +4,8 @@ import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/upgrades/contracts/Initializable.sol";
+
 import "./interfaces/IPriceOracleProxy.sol";
 import "./interfaces/IFantomMintAddressProvider.sol";
 import "./interfaces/IFantomMintTokenRegistry.sol";
@@ -21,7 +23,7 @@ import "./modules/FantomMintConfig.sol";
 // Minting is burdened with a minting fee defined as the amount
 // of percent of the minted tokens value in fUSD. Burning is free
 // of any fee.
-contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt, FantomMintConfig {
+contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollateral, FantomMintDebt, FantomMintConfig {
     // define used libs
     using SafeMath for uint256;
     using Address for address;
@@ -35,10 +37,15 @@ contract FantomMint is FantomMintBalanceGuard, FantomMintCollateral, FantomMintD
     // contracts.
     IFantomMintAddressProvider public addressProvider;
 
-    // constructor initializes a new instance of the fMint module.
-    constructor(address _addressProvider) public {
+    // initialize initializes the contract properly before the first use.
+    function initialize(address _addressProvider) public initializer {
         // remember the address provider connecting satellite contracts to the minter
         addressProvider = IFantomMintAddressProvider(_addressProvider);
+
+        // init the underlying party
+        FantomMintCollateral.initialize();
+        FantomMintDebt.initialize();
+        FantomMintConfig.initialize();
     }
 
     // -------------------------------------------------------------
