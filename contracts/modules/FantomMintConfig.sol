@@ -25,9 +25,9 @@ contract FantomMintConfig is Initializable, Ownable
     uint256 public fMintFee4dec;
 
     // initialize initializes the contract properly before the first use.
-    function initialize() public initializer {
+    function initialize(address owner) public initializer {
         // initialize the Ownable
-        Ownable.initialize(msg.sender);
+        Ownable.initialize(owner);
 
         // initialize default values
         collateralLowestDebtRatio4dec = 30000;

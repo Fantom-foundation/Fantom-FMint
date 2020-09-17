@@ -43,9 +43,8 @@ contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegi
     event TokenUpdated(address indexed token, string name);
 
     // initialize initializes the contract properly before the first use.
-    function initialize() public initializer {
-        // init the Ownable
-        Ownable.initialize(msg.sender);
+    function initialize(address owner) public initializer {
+        Ownable.initialize(owner);
     }
 
     // ---------------------------------

@@ -62,12 +62,12 @@ contract FantomMintRewardDistribution is Initializable, Ownable, FantomMintRewar
     // ---------------------------------------------------------------------
 
     // initialize initializes the contract properly before the first use.
-    function initialize(address _addressProvider) public initializer {
+    function initialize(address owner, address addressProvider) public initializer {
         // remember the address provider for the other protocol contracts connection
-        addressProvider = IFantomMintAddressProvider(_addressProvider);
+        addressProvider = IFantomMintAddressProvider(addressProvider);
 
         // init the Ownable
-        Ownable.initialize(msg.sender);
+        Ownable.initialize(owner);
     }
 
     // ---------------------------------------------------------------------

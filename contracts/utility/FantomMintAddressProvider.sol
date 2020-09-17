@@ -73,8 +73,8 @@ contract FantomMintAddressProvider is Initializable, Ownable, IFantomMintAddress
     event DebtPoolChanged(address newAddress);
 
     // initialize initializes the instance of the module.
-    function initialize() public initializer {
-        Ownable.initialize(msg.sender);
+    function initialize(address owner) public initializer {
+        Ownable.initialize(owner);
     }
 
     // --------------------------------------------
