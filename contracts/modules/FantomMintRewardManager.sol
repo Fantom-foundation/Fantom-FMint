@@ -101,16 +101,13 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         // update the reward distribution for the account
         rewardUpdate(msg.sender);
 
-        // how many reward tokens were earned by the account?
-        uint256 reward = rewardStash[msg.sender];
-
-        // @NOTE: Pulling this from the rewardEarned() invokes system-wide
+        // @NOTE: Pulling earned rewards from the rewardEarned() invokes system-wide
         // collateral balance calculation again (through rewardPerToken) burning gas;
         // All the earned tokens should be in the stash already after
-        // the reward update call above.
+        // the rewardUpdate() call above.
 
         // are there any at all?
-        if (0 == reward) {
+        if (0 == rewardStash[msg.sender]) {
             return ERR_NO_REWARD;
         }
 
@@ -122,6 +119,9 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         if (!rewardCanClaim(msg.sender)) {
             return ERR_REWARD_CLAIM_REJECTED;
         }
+
+        // how many reward tokens were earned by the account?
+        uint256 reward = rewardStash[msg.sender];
 
         // reset accumulated rewards on the account
         rewardStash[msg.sender] = 0;
