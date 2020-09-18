@@ -25,7 +25,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
 
     // rewardEpochLength represents the shortest possible length of the rewards
     // epoch where accounts can claim their accumulated rewards from staked collateral.
-    uint256 public constant rewardEpochLength = 7 days;
+    uint256 public constant rewardEpochLength = 1 days;
 
     // rewardPerTokenDecimalsCorrection represents the correction done on rewards per token
     // so the calculation does not loose precision on very low reward rates and high collateral
