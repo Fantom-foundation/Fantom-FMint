@@ -206,7 +206,7 @@ contract FantomMintRewardManager is FantomMintErrorCodes, IFantomMintRewardManag
         // we require then to have collateral to debt ration over 500%
         // by default
         if (!rewardIsEligible(_account)) {
-            return 0;
+            return rewardStash[_account];
         }
 
         // calculate earned rewards based on the account share on the total
