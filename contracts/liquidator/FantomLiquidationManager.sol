@@ -3,6 +3,9 @@ pragma solidity ^0.5.0;
 import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 
+import "../interfaces/IFantomMintAddressProvider.sol";
+import "../interfaces/IFantomDeFiTokenStorage.sol";
+
 // FantomLiquidationManager implements the liquidation model
 // with the ability to fine tune settings by the contract owner.
 contract FantomLiquidationManager is Initializable, Ownable
@@ -11,14 +14,14 @@ contract FantomLiquidationManager is Initializable, Ownable
     using SafeMath for uint256;
     using Address for address;
 
-    struct VaultData {
-        address liquidator;
-        uint256 liquidationPenalty;
-        uint256 maxAmt;
-        uint256 targetAmt;
-    }
+    mapping(address => mapping(address => uint256)) public liquidatedVault;
+    
+    address[] public collateralAddresses;
 
-    // mapping(address => mapping(address => uint256)) public liquidatedVault;
+    // addressProvider represents the connection to other FMint related
+    // contracts.
+    IFantomMintAddressProvider public addressProvider;
+
     mapping(address => uint256) public admins;
     mapping(bytes32 => VaultData) public vaultDatas;
 
@@ -29,13 +32,17 @@ contract FantomLiquidationManager is Initializable, Ownable
     uint256 constant WAD = 10 ** 18;
 
     // initialize initializes the contract properly before the first use.
-    function initialize(address owner) public initializer {
+    function initialize(address owner, address _addressProvider) public initializer {
         // initialize the Ownable
         Ownable.initialize(owner);
+
+        // remember the address provider for the other protocol contracts connection
+        addressProvider = IFantomMintAddressProvider(_addressProvider);
 
         // initialize default values
         admins[owner] = 1;
         live = 1;
+        
     }
 
     function addAdmin(address usr) external onlyOwner {
@@ -51,54 +58,54 @@ contract FantomLiquidationManager is Initializable, Ownable
         _;
     }
 
-    function startLiquidation(bytes32 vaultIndex, address urn, address rewardReceiver) external returns (uint256 id) {
+    // getCollateralPool returns the address of collateral pool.
+    function getCollateralPool() public view returns (IFantomDeFiTokenStorage) {
+        return addressProvider.getCollateralPool();
+    }
+
+    // getDebtPool returns the address of debt pool.
+    function getDebtPool() public view returns (IFantomDeFiTokenStorage) {
+        return addressProvider.getDebtPool();
+    }
+
+    // rewardIsEligible checks if the account is eligible to receive any reward.
+    function collateralIsEligible(address _account, address _token) public view returns (bool) {
+        return addressProvider.getFantomMint().collateralCanDecrease(_account, _token, _amount, 0, getCollateralLowestDebtRatio4dec());
+    }
+
+    function startLiquidation(address targetAddress, address _token) external returns (uint256 id) {
         require(live == 1, "Liquidation not live");
 
-        (uint256 lockedCollat, uint256 normalisedDebt) = vat.urns(vaultIndex, urn);
-        VaultData memory mVaultData = vaultDatas[vaultIndex];
-        uint256 dNormalisedDebt;
-        uint256 rate;   
-        uint256 dust;
+        require(!collateralIsEligible(targetAddress, _token, 0), "Collateral is not eligible for liquidation");
 
-        // dart calculation
-        uint256 spot;
-        (, rate, spot,, dust) = vat.ilks(vaultIndex);
-        require(spot > 0 && mul(ink, spot) < mul(art, rate), "Collateral not unsafe");
+        require(getCollateralPool().totalOf(targetAddress) > 0, "Collateral is not eligible for liquidation");
 
-        require(maxAmt > targetAmt && mVaultData.maxAmt > mVaultData.targetAmt, "Collateral liquidation limit hit");
-        uint256 room = min(maxAmt - targetAmt, mVaultData.maxAmt - mVaultData.targetAmt);
+        // get the collateral pool
+        IFantomDeFiTokenStorage pool = IFantomDeFiTokenStorage(getCollateralPool());
+        
+        for (uint i = 0; i < getCollateralPool().tokens.length; i++) {
+            uint256 collatBalance = getCollateralPool().balanceOf(targetAddress, getCollateralPool().tokens[i]);
+            liquidatedVault[targetAddress][getCollateralPool().tokens[i]] = liquidatedVault[targetAddress][getCollateralPool().tokens[i]] + collatBalance;
+            
+            pool.sub(targetAddress, getCollateralPool().tokens[i], collatBalance);
+        }
 
-        dNormalisedDebt = min(normalisedDebt, mul(room, WAD) / rate / mVaultData.liquidationPenalty);
+        bool found = false;
 
-        if (normalisedDebt > dNormalisedDebt) {
-            if (mul(normalisedDebt - dNormalisedDebt, rate) < dust) {
-                dNormalisedDebt = normalisedDebt;
-            } else {
-                require(mul(dNormalisedDebt, normalisedDebt) >= dust, "Dusty auction from partial liquidation");
+        // loop the current list and try to find the token
+        for (uint256 i = 0; i < collateralAddresses.length; i++) {
+            if (collateralAddresses[i] == targetAddress) {
+                found = true;
+                break;
             }
         }
 
-        uint256 dink = mul(lockedCollat, dNormalisedDebt) / normlaisedDebt;
+        // add the token to the list if not found
+        if (!found) {
+            collateralAddresses.push(targetAddress);
+        }
 
-        require(dink > 0, "Null auction");
-        require(dNormalisedDebt <= 2**255 && dink <= 2**255, "Overflow");
-
-        // Grab the collateral
-        // vat.grab(ilk, urn, mVaultData.liquidator, address(vow), -int256(dink), -uint256(dNormalisedDebt));
-
-        uint256 due = mul(dNormalisedDebt, rate);
-        vow.fess(due);
-
-        uint256 tab = mul(due, mVaultData.liquidationPenalty) / WAD;
-        targetAmt = add(targetAmt, tab);
-
-        vaultDatas[vaultIndex].targetAmt = add(mVaultData.targetAmt, tab);
-        FantomAuctionManager(mVaultData.liquidation).kick({
-            tab: tab,
-            lot: dink,
-            usr: urn,
-            kpr: rewardReceiver
-        });
+        FantomAuctionManager(targetAddress).startAuction();
     }
 
     function endLiquidation() external auth {
