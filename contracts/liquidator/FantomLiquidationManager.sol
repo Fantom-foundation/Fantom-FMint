@@ -14,18 +14,31 @@ contract FantomLiquidationManager is Initializable, Ownable
     using SafeMath for uint256;
     using Address for address;
 
-    mapping(address => mapping(address => uint256)) public liquidatedVault;
-    
-    address[] public collateralAddresses;
+    struct AuctionInformation {
+        address owner;
+        uint256 startTime;
+        uint256 intervalTime;
+        uint256 endTime;
+        uint256 startPrice;
+        uint256 intervalPrice;
+        uint256 minPrice;
+        uint256 round;
+    }
 
-    address public auctionAddress;
+    mapping(address => mapping(address => uint256)) public liquidatedVault;
+    mapping(address => AuctionInformation) public auctionList;
+    
+    address[] public collateralOwners;
 
     // addressProvider represents the connection to other FMint related
     // contracts.
     IFantomMintAddressProvider public addressProvider;
 
     mapping(address => uint256) public admins;
-    mapping(bytes32 => VaultData) public vaultDatas;
+
+    uint256 public roundPriceDiff;
+    uint256 public intervalPriceDiff;
+    uint256 public intervalTimeDiff;
 
     uint256 public live;
     uint256 public maxAmt;
@@ -44,7 +57,9 @@ contract FantomLiquidationManager is Initializable, Ownable
         // initialize default values
         admins[owner] = 1;
         live = 1;
-        
+        roundPriceDiff = 2;
+        intervalPriceDiff = 1;
+        intervalTimeDiff = 60;
     }
 
     function addAdmin(address usr) external onlyOwner {
@@ -53,6 +68,18 @@ contract FantomLiquidationManager is Initializable, Ownable
 
     function removeAdmin(address usr) external onlyOwner {
         admins[usr] = 0;
+    }
+
+    function changeRoundPriceDiff(uint256 _roundPriceDiff) external onlyOwner {
+        roundPriceDiff = _roundPriceDiff;
+    }
+
+    function changeIntervalPriceDiff(uint256 _intervalPriceDiff) external onlyOwner {
+        intervalPriceDiff = _intervalPriceDiff;
+    }
+
+    function changeIntervalTimeDiff(uint256 _intervalTimeDiff) external onlyOwner {
+        intervalTimeDiff = _intervalTimeDiff;
     }
 
     modifier auth {
@@ -75,6 +102,33 @@ contract FantomLiquidationManager is Initializable, Ownable
         return addressProvider.getFantomMint().collateralCanDecrease(_account, _token, _amount, 0, getCollateralLowestDebtRatio4dec());
     }
 
+    function getLiquidationList() external view returns (address[]) {
+        return collateralOwners;
+    }
+
+    function getLiquidationDetails(address _collateralOwner) external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
+        AuctionInformation memory _auction = auctionList[_collateralOwner];
+        return (
+            _auction.startTime,
+            _auction.intervalTime,
+            _auction.endTime,
+            _auction.startPrice,
+            _auction.intervalPrice,
+            _auction.minPrice,
+            _auction.round
+        );
+    }
+
+    function updateLiquidation(address _collateralOwner) public auth {
+        AuctionInformation memory _auction = auctionList[_collateralOwner];
+        require(_auction.round > 0, "Auction not found");
+        if (_auction.endTime >= now) {
+            // Restart the Auction
+        } else {
+            // Decrease the price
+        }
+    } 
+
     function startLiquidation(address targetAddress, address _token) external returns (uint256 id) {
         require(live == 1, "Liquidation not live");
 
@@ -94,9 +148,9 @@ contract FantomLiquidationManager is Initializable, Ownable
 
         bool found = false;
 
-        // loop the current list and try to find the token
-        for (uint256 i = 0; i < collateralAddresses.length; i++) {
-            if (collateralAddresses[i] == targetAddress) {
+        // loop the current list and try to find the user
+        for (uint256 i = 0; i < collateralOwners.length; i++) {
+            if (collateralOwners[i] == targetAddress) {
                 found = true;
                 break;
             }
@@ -104,10 +158,10 @@ contract FantomLiquidationManager is Initializable, Ownable
 
         // add the token to the list if not found
         if (!found) {
-            collateralAddresses.push(targetAddress);
+            collateralOwners.push(targetAddress);
         }
 
-        FantomAuctionManager(auctionAddress).startAuction(liquidatedVault[targetAddress]);
+
     }
 
     function endLiquidation() external auth {
