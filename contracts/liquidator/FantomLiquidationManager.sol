@@ -20,10 +20,13 @@ contract FantomLiquidationManager is Initializable, Ownable
         uint256 intervalTime;
         uint256 endTime;
         uint256 startPrice;
+        uint256 currentPrice;
         uint256 intervalPrice;
         uint256 minPrice;
         uint256 round;
     }
+    
+    event AuctionStarted(address indexed user);
 
     mapping(address => mapping(address => uint256)) public liquidatedVault;
     mapping(address => AuctionInformation) public auctionList;
@@ -36,9 +39,10 @@ contract FantomLiquidationManager is Initializable, Ownable
 
     mapping(address => uint256) public admins;
 
-    uint256 public roundPriceDiff;
-    uint256 public intervalPriceDiff;
-    uint256 public intervalTimeDiff;
+    uint256 internal roundPriceDiff;
+    uint256 internal intervalPriceDiff;
+    uint256 internal intervalTimeDiff;
+    uint256 internal defaultMinPrice;
 
     uint256 public live;
     uint256 public maxAmt;
@@ -57,9 +61,10 @@ contract FantomLiquidationManager is Initializable, Ownable
         // initialize default values
         admins[owner] = 1;
         live = 1;
-        roundPriceDiff = 2;
-        intervalPriceDiff = 1;
+        roundPriceDiff = 20;
+        intervalPriceDiff = 10;
         intervalTimeDiff = 60;
+        defaultMinPrice = 200;
     }
 
     function addAdmin(address usr) external onlyOwner {
@@ -106,30 +111,31 @@ contract FantomLiquidationManager is Initializable, Ownable
         return collateralOwners;
     }
 
-    function getLiquidationDetails(address _collateralOwner) external view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256) {
+    function getLiquidationDetails(address _collateralOwner) external view returns (uint256, uint256, uint256) {
         AuctionInformation memory _auction = auctionList[_collateralOwner];
         return (
             _auction.startTime,
-            _auction.intervalTime,
             _auction.endTime,
-            _auction.startPrice,
-            _auction.intervalPrice,
-            _auction.minPrice,
-            _auction.round
+            _auction.currentPrice,
         );
     }
 
     function updateLiquidation(address _collateralOwner) public auth {
-        AuctionInformation memory _auction = auctionList[_collateralOwner];
+        AuctionInformation storage _auction = auctionList[_collateralOwner];
         require(_auction.round > 0, "Auction not found");
         if (_auction.endTime >= now) {
             // Restart the Auction
+
+            _auction.round = _auction.round + 1;
+            _auction.startTime = now;
+            _auction.startPrice = 300 - _auction.intervalPrice * (_auction.round - 1);
         } else {
             // Decrease the price
+
         }
     } 
 
-    function startLiquidation(address targetAddress, address _token) external returns (uint256 id) {
+    function startLiquidation(address targetAddress, address _token) external auth returns (uint256 id) {
         require(live == 1, "Liquidation not live");
 
         require(!collateralIsEligible(targetAddress, _token, 0), "Collateral is not eligible for liquidation");
@@ -161,7 +167,24 @@ contract FantomLiquidationManager is Initializable, Ownable
             collateralOwners.push(targetAddress);
         }
 
+        startAuction(targetAddress);
+    }
 
+    function startAuction(address _collateralOwner) internal {
+        AuctionInformation memory _auction;
+        _auction.owner = _collateralOwner;
+        _auction.round = 1;
+        _auction.startPrice = 300;
+        _auction.currentPrice = 300;
+        _auction.intervalPrice = intervalPriceDiff;
+        _auction.minPrice = defaultMinPrice;
+        _auction.startTime = now;
+        _auction.intervalTime = intervalTimeDiff;
+        _auction.endTime = now + 60000;
+        
+        auctionList[_collateralOwner] = _auction;
+
+        emit AuctionStarted(_collateralOwner);
     }
 
     function endLiquidation() external auth {
