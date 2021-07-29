@@ -123,12 +123,13 @@ contract FantomLiquidationManager is Initializable, Ownable
     function updateLiquidation(address _collateralOwner) public auth {
         AuctionInformation storage _auction = auctionList[_collateralOwner];
         require(_auction.round > 0, "Auction not found");
-        if (_auction.endTime >= now) {
+        uint256 _nextPrice = _auction.currentPrice - _auction.intervalPrice;
+        if (_auction.endTime >= now || _nextPrice < _auction.minPrice) {
             // Restart the Auction
 
             _auction.round = _auction.round + 1;
             _auction.startTime = now;
-            _auction.startPrice = 300 - _auction.intervalPrice * (_auction.round - 1);
+            _auction.currentPrice = _auction.startPrice - _auction.intervalPrice * (_auction.round - 1);
         } else {
             // Decrease the price
 
