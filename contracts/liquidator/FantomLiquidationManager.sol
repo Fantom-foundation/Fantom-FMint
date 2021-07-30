@@ -27,6 +27,7 @@ contract FantomLiquidationManager is Initializable, Ownable
     }
     
     event AuctionStarted(address indexed user);
+    event AuctionRestarted(address indexed user);
 
     mapping(address => mapping(address => uint256)) public liquidatedVault;
     mapping(address => AuctionInformation) public auctionList;
@@ -123,20 +124,40 @@ contract FantomLiquidationManager is Initializable, Ownable
     function updateLiquidation(address _collateralOwner) public auth {
         AuctionInformation storage _auction = auctionList[_collateralOwner];
         require(_auction.round > 0, "Auction not found");
-        uint256 _nextPrice = _auction.currentPrice - _auction.intervalPrice;
+        uint256 timeDiff = now - _auction.startTime;
+        uint256 currentRound = timeDiff / _auction.intervalTime;
+        uint256 _nextPrice = _auction.startPrice - currentRound * _auction.intervalPrice;
         if (_auction.endTime >= now || _nextPrice < _auction.minPrice) {
             // Restart the Auction
-
             _auction.round = _auction.round + 1;
+            _auction.startPrice = 300;
+            _auction.currentPrice = 300;
+            _auction.intervalPrice = intervalPriceDiff;
+            _auction.minPrice = defaultMinPrice;
             _auction.startTime = now;
-            _auction.currentPrice = _auction.startPrice - _auction.intervalPrice * (_auction.round - 1);
+            _auction.intervalTime = intervalTimeDiff;
+            _auction.endTime = now + 60000;
+            emit AuctionRestarted(_collateralOwner);
         } else {
             // Decrease the price
-
+            _auction.currentPrice = _nextPrice;
         }
-    } 
+    }
 
-    function startLiquidation(address targetAddress, address _token) external auth returns (uint256 id) {
+    function bidAuction(address _collateralOwner, address _token, uint256 amount) public returns (bool) {
+        AuctionInformation storage _auction = auctionList[_collateralOwner];
+        
+    }
+
+    function getAuctionResource(address _collateralOwner) public view returns (address[] memory, uint256[] memory) {
+        uint256[] memory amounts;
+        for (uint i = 0; i < getCollateralPool().tokens.length; i++) {
+            amounts.push(liquidatedVault[_collateralOwner][getCollateralPool().tokens[i]]);
+        }
+        return (getCollateralPool().tokens, amounts);
+    }
+
+    function startLiquidation(address targetAddress, address _token) external auth {
         require(live == 1, "Liquidation not live");
 
         require(!collateralIsEligible(targetAddress, _token, 0), "Collateral is not eligible for liquidation");
