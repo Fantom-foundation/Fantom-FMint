@@ -60,4 +60,6 @@ interface IFantomMintAddressProvider {
 
 	// setRewardToken modifies the address of the reward token ERC20 contract.
 	function setRewardToken(address _addr) external;
+
+	function getAddress(bytes32 _id) external view returns (address);
 }

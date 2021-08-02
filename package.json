@@ -21,7 +21,16 @@
   },
   "homepage": "https://github.com/Fantom-foundation/Fantom-FMint#readme",
   "dependencies": {
+    "@openzeppelin/contracts": "^4.2.0",
     "@openzeppelin/contracts-ethereum-package": "^2.5.0",
-    "@openzeppelin/upgrades": "^2.8.0"
+    "@openzeppelin/contracts-upgradeable": "^4.2.0",
+    "@openzeppelin/upgrades": "^2.8.0",
+    "@truffle/hdwallet-provider": "^1.4.2",
+    "dotenv": "^10.0.0",
+    "truffle-contract-size": "^2.0.1",
+    "truffle-plugin-verify": "^0.5.11"
+  },
+  "devDependencies": {
+    "@openzeppelin/truffle-upgrades": "^1.8.0"
   }
 }
