@@ -6,7 +6,7 @@ const mnemonic = fs.readFileSync(".secret").toString().trim();
 module.exports = {
     compilers: {
         solc: {
-          version: '^0.5.17',
+          version: '0.5.17',
           settings: {
             optimizer: {
               enabled: true,
@@ -23,11 +23,15 @@ module.exports = {
         },
         test: {
             provider: () => new HDWalletProvider(mnemonic, `https://rpc.testnet.fantom.network`),
-            network_id: 4002,
+            network_id: 250,
         }
     },
 
     plugins: [
       'truffle-plugin-verify'
     ],
+
+    api_keys: {
+      ftmscan: 'MUQSNKBT19M2IXGQ18DVDTB42NXWSWNVNV'
+    }
 };
