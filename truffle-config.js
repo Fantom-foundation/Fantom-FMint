@@ -1,3 +1,8 @@
+const HDWalletProvider = require('@truffle/hdwallet-provider');
+
+const fs = require('fs');
+const mnemonic = fs.readFileSync(".secret").toString().trim();
+
 module.exports = {
     compilers: {
         solc: {
@@ -17,9 +22,12 @@ module.exports = {
             network_id: "4002"
         },
         test: {
-            host: "wsapi.testnet.fantom.network",
-            port: 80,
-            network_id: "4002"
+            provider: () => new HDWalletProvider(mnemonic, `https://rpc.testnet.fantom.network`),
+            network_id: 4002,
         }
-    }
+    },
+
+    plugins: [
+      'truffle-plugin-verify'
+    ],
 };
