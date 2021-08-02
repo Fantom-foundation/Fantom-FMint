@@ -23,7 +23,7 @@ module.exports = {
         },
         test: {
             provider: () => new HDWalletProvider(mnemonic, `https://rpc.testnet.fantom.network`),
-            network_id: 250,
+            network_id: 4002,
         }
     },
 
