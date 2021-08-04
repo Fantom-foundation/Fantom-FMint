@@ -39,7 +39,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         uint256 intervalPrice;
         uint256 minPrice;
         uint256 round;
-        uint256 remainingValue;
     }
 
     bytes32 private constant MOD_FANTOM_MINT = "fantom_mint";
@@ -54,12 +53,13 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     mapping(address => AuctionInformation) public auctionList;
     
     address[] public collateralOwners;
+    mapping(address => uint) public auctionIndex;
 
     // addressProvider represents the connection to other FMint related
     // contracts.
     IFantomMintAddressProvider public addressProvider;
 
-    mapping(address => uint256) public admins;
+    mapping(address => bool) public admins;
 
     address public fantomUSD;
     address public collateralContract;
@@ -85,7 +85,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         addressProvider = IFantomMintAddressProvider(_addressProvider);
 
         // initialize default values
-        admins[owner] = 1;
+        admins[owner] = true;
         live = 1;
         auctionBeginPrice = 300;
         intervalPriceDiff = 10;
@@ -94,11 +94,11 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     function addAdmin(address usr) external onlyOwner {
-        admins[usr] = 1;
+        admins[usr] = true;
     }
 
     function removeAdmin(address usr) external onlyOwner {
-        admins[usr] = 0;
+        admins[usr] = false;
     }
 
     function updateAuctionBeginPrice(uint256 _auctionBeginPrice) external onlyOwner {
@@ -134,7 +134,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     modifier auth {
-        require(admins[msg.sender] == 1, "Sender not authorized");
+        require(admins[msg.sender], "Sender not authorized");
         _;
     }
 
@@ -149,8 +149,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
-    function collateralIsEligible(address _account, address _token) public view returns (bool) {
-        return FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT)).checkCollateralCanDecrease(_account, _token, 0);
+    function collateralIsEligible(address _account) public view returns (bool) {
+        return FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT)).checkCollateralCanDecrease(_account, getCollateralPool().tokens()[0], 0);
     }
 
     function getLiquidationList() external view returns (address[] memory) {
@@ -185,34 +185,46 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         }
     }
 
-    function bidAuction(address _collateralOwner, address _token, uint256 amount) public returns (uint256) {
-        AuctionInformation storage _auction = auctionList[_collateralOwner];
+    function balanceOfRemainingCollateral(address _collateralOwner) public view returns (uint256) {
+        IFantomDeFiTokenStorage pool = getCollateralPool();
         
+        uint totalValue = 0;
+        for (uint i = 0; i < pool.tokensCount(); i++) {
+            totalValue += liquidatedVault[_collateralOwner][pool.tokens()[i]];
+        }
+
+        return totalValue;
+    }
+
+    function bidAuction(address _collateralOwner, address _token, uint256 amount) public returns (uint256) {
+        require(auctionIndex[_collateralOwner] > 0, "Target Collateral is not in Auction.");
         require(liquidatedVault[_collateralOwner][_token] >= amount, "Collateral is not sufficient to buy.");
+
+        AuctionInformation storage _auction = auctionList[_collateralOwner];
 
         uint256 buyValue = getCollateralPool().tokenValue(_token, amount);
         uint256 debtValue = buyValue
             .mul(10000)
             .div(_auction.currentPrice);
         
-        // make sure caller has enough balance to cover the bid
+        // make sure caller has enough fUSD to cover the collateral
         if (debtValue >= ERC20(fantomUSD).balanceOf(msg.sender)) {
             return ERR_LOW_BALANCE;
         }
 
-        // make sure we are allowed to transfer funds from the caller
-        // to the fMint collateral pool
+        // make sure we are allowed to transfer fUSD from the caller
+        // to the liqudation pool.
         if (debtValue >= ERC20(fantomUSD).allowance(msg.sender, address(this))) {
             return ERR_LOW_ALLOWANCE;
         }
 
-        // make sure caller has enough balance to cover the bid
+        // make sure the collateral is sufficient to buy
         if (amount >= ERC20(_token).balanceOf(collateralContract)) {
             return ERR_LOW_BALANCE;
         }
 
-        // make sure we are allowed to transfer funds from the caller
-        // to the fMint collateral pool
+        // make sure we are allowed to transfer the collateral from the collateral contract
+        // to the buyer
         if (amount >= ERC20(_token).allowance(collateralContract, msg.sender)) {
             return ERR_LOW_ALLOWANCE;
         }
@@ -220,17 +232,37 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         ERC20(fantomUSD).safeTransferFrom(msg.sender, address(this), debtValue);
 
         ERC20(_token).safeTransferFrom(collateralContract, msg.sender, amount);
-        // transfer ERC20 tokens from account to the collateral
+
+        liquidatedVault[_collateralOwner][_token] -= amount;
 
         emit Withdrawn(_token, msg.sender, amount);
+
+        // Check if auction is finished or not
+        bool auctionEnded = false;
+
+        if (liquidatedVault[_collateralOwner] == 0) {
+            auctionEnded = balanceOfRemainingCollateral(_collateralOwner) > 0;
+        }
+
+        if (auctionEnded) {
+            uint indexOfArray = auctionIndex[_collateralOwner];
+            if (indexOfArray == collateralOwners.length) {
+                auctionIndex[_collateralOwner] = 0;
+                collateralOwners.pop();
+            } else {
+                collateralOwners[indexOfArray - 1] = collateralOwners[collateralOwners.length - 1];
+                collateralOwners.pop();
+                auctionIndex[collateralOwners[indexOfArray - 1]] = indexOfArray;
+            }
+        }
+        return ERR_NO_ERROR;
     }
 
     function getAuctionResource(address _collateralOwner) public returns (address[] memory, uint256[] memory) {
         uint256[] memory amounts = new uint256[](getCollateralPool().tokensCount());
         for (uint i = 0; i < getCollateralPool().tokensCount(); i++) {
             address _token = getCollateralPool().tokens()[i];
-            uint256 liqudatedValue = liquidatedVault[_collateralOwner][_token];
-            amounts[i] = liqudatedValue;
+            amounts[i] = liquidatedVault[_collateralOwner][_token];
         }
         return (getCollateralPool().tokens(), amounts);
     }
@@ -240,40 +272,28 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         // get the collateral pool
         IFantomDeFiTokenStorage pool = getCollateralPool();
 
-        require(!collateralIsEligible(targetAddress, _token), "Collateral is not eligible for liquidation");
+        require(!collateralIsEligible(targetAddress), "Collateral is not eligible for liquidation");
 
-        require(pool.totalOf(targetAddress) > 0, "Collateral is not eligible for liquidation");
+        require(pool.totalOf(targetAddress) > 0, "The value of the collateral is 0");
 
 
         addressProvider.getRewardDistribution().rewardUpdate(targetAddress);
         
-        uint256 debtValue = getDebtPool().totalOf(targetAddress);
         for (uint i = 0; i < pool.tokensCount(); i++) {
             uint256 collatBalance = pool.balanceOf(targetAddress, pool.tokens()[i]);
-            liquidatedVault[targetAddress][pool.tokens()[i]] = liquidatedVault[targetAddress][pool.tokens()[i]] + collatBalance;
-            
+            liquidatedVault[targetAddress][pool.tokens()[i]] += collatBalance;
             pool.sub(targetAddress, pool.tokens()[i], collatBalance);
         }
 
-        bool found = false;
-
-        // loop the current list and try to find the user
-        for (uint256 i = 0; i < collateralOwners.length; i++) {
-            if (collateralOwners[i] == targetAddress) {
-                found = true;
-                break;
-            }
-        }
-
-        // add the token to the list if not found
-        if (!found) {
+        if (auctionIndex[targetAddress] == 0) {
             collateralOwners.push(targetAddress);
+            auctionIndex[targetAddress] = collateralOwners.length;
         }
 
-        startAuction(targetAddress, debtValue);
+        startAuction(targetAddress);
     }
 
-    function startAuction(address _collateralOwner, uint256 _debtValue) internal {
+    function startAuction(address _collateralOwner) internal {
         AuctionInformation memory _auction;
         _auction.owner = _collateralOwner;
         _auction.round = 1;
@@ -284,14 +304,13 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _auction.startTime = now;
         _auction.intervalTime = intervalTimeDiff;
         _auction.endTime = now + 60000;
-        _auction.remainingValue = _debtValue;
         
         auctionList[_collateralOwner] = _auction;
 
         emit AuctionStarted(_collateralOwner);
     }
 
-    function endLiquidation() external auth {
-        live = 0;
+    function updateLiquidationFlag(bool _live) external auth {
+        live = _live;
     }
 }
