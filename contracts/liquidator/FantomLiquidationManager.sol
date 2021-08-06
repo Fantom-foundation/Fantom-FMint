@@ -267,7 +267,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         return (getCollateralPool().tokens(), amounts);
     }
 
-    function startLiquidation(address targetAddress, address _token) external auth {
+    function startLiquidation(address targetAddress) external auth {
         require(live == 1, "Liquidation not live");
         // get the collateral pool
         IFantomDeFiTokenStorage pool = getCollateralPool();
