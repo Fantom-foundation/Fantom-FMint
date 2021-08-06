@@ -70,7 +70,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     uint256 internal auctionBeginPrice;
     uint256 internal defaultMinPrice;
 
-    uint256 public live;
+    bool public live;
     uint256 public maxAmt;
     uint256 public targetAmt;
 
@@ -86,7 +86,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         // initialize default values
         admins[owner] = true;
-        live = 1;
+        live = true;
         auctionBeginPrice = 300;
         intervalPriceDiff = 10;
         intervalTimeDiff = 60;
@@ -268,7 +268,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     function startLiquidation(address targetAddress) external auth {
-        require(live == 1, "Liquidation not live");
+        require(live, "Liquidation not live");
         // get the collateral pool
         IFantomDeFiTokenStorage pool = getCollateralPool();
 
