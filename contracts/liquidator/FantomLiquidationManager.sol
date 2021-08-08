@@ -35,7 +35,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         uint256 intervalTime;
         uint256 endTime;
         uint256 startPrice;
-        uint256 currentPrice;
         uint256 intervalPrice;
         uint256 minPrice;
         uint256 round;
@@ -159,7 +158,10 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     function getLiquidationDetails(address _collateralOwner) external view returns (uint256, uint256, uint256) {
         AuctionInformation memory _auction = auctionList[_collateralOwner];
-        return (_auction.startTime, _auction.endTime, _auction.currentPrice);
+        uint256 timeDiff = block.timestamp - _auction.startTime;
+        uint256 currentRound = timeDiff / _auction.intervalTime;
+        uint256 currentPrice = _auction.startPrice - currentRound * _auction.intervalPrice;
+        return (_auction.startTime, _auction.endTime, currentPrice);
     }
 
     function updateLiquidation(address _collateralOwner) public auth {
@@ -172,16 +174,12 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             // Restart the Auction
             _auction.round = _auction.round + 1;
             _auction.startPrice = auctionBeginPrice;
-            _auction.currentPrice = auctionBeginPrice;
             _auction.intervalPrice = intervalPriceDiff;
             _auction.minPrice = defaultMinPrice;
             _auction.startTime = now;
             _auction.intervalTime = intervalTimeDiff;
             _auction.endTime = now + 60000;
             emit AuctionRestarted(_collateralOwner);
-        } else {
-            // Decrease the price
-            _auction.currentPrice = _nextPrice;
         }
     }
 
@@ -202,10 +200,14 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         AuctionInformation storage _auction = auctionList[_collateralOwner];
 
+        uint256 timeDiff = block.timestamp - _auction.startTime;
+        uint256 currentRound = timeDiff / _auction.intervalTime;
+        uint256 currentPrice = _auction.startPrice - currentRound * _auction.intervalPrice;
+
         uint256 buyValue = getCollateralPool().tokenValue(_token, amount);
         uint256 debtValue = buyValue
             .mul(10000)
-            .div(_auction.currentPrice);
+            .div(currentPrice);
         
         // make sure caller has enough fUSD to cover the collateral
         if (debtValue >= ERC20(fantomUSD).balanceOf(msg.sender)) {
@@ -306,7 +308,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _auction.owner = _collateralOwner;
         _auction.round = 1;
         _auction.startPrice = auctionBeginPrice;
-        _auction.currentPrice = auctionBeginPrice;
         _auction.intervalPrice = intervalPriceDiff;
         _auction.minPrice = defaultMinPrice;
         _auction.startTime = now;
