@@ -68,6 +68,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     uint256 internal intervalTimeDiff;
     uint256 internal auctionBeginPrice;
     uint256 internal defaultMinPrice;
+    uint256 internal minDebtValue;
 
     bool public live;
     uint256 public maxAmt;
@@ -90,6 +91,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         intervalPriceDiff = 10;
         intervalTimeDiff = 60;
         defaultMinPrice = 200;
+        minDebtValue = 100;
     }
 
     function addAdmin(address usr) external onlyOwner {
@@ -114,6 +116,10 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     function updateAuctionMinPrice(uint256 _defaultMinPrice) external onlyOwner {
         defaultMinPrice = _defaultMinPrice;
+    }
+
+    function updateMinimumDebtValue(uint256 _minDebtValue) external onlyOwner {
+        minDebtValue = _minDebtValue;
     }
 
     function updateFantomUSDAddress(address _fantomUSD) external onlyOwner {
@@ -167,18 +173,18 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     function updateLiquidation(address _collateralOwner) public auth {
         AuctionInformation storage _auction = auctionList[_collateralOwner];
         require(_auction.round > 0, "Auction not found");
-        uint256 timeDiff = now - _auction.startTime;
+        uint256 timeDiff = block.timestamp - _auction.startTime;
         uint256 currentRound = timeDiff / _auction.intervalTime;
         uint256 _nextPrice = _auction.startPrice - currentRound * _auction.intervalPrice;
-        if (_auction.endTime >= now || _nextPrice < _auction.minPrice) {
+        if (_auction.endTime >= block.timestamp || _nextPrice < _auction.minPrice) {
             // Restart the Auction
             _auction.round = _auction.round + 1;
             _auction.startPrice = auctionBeginPrice;
             _auction.intervalPrice = intervalPriceDiff;
             _auction.minPrice = defaultMinPrice;
-            _auction.startTime = now;
+            _auction.startTime = block.timestamp;
             _auction.intervalTime = intervalTimeDiff;
-            _auction.endTime = now + 60000;
+            _auction.endTime = block.timestamp + 60000;
             emit AuctionRestarted(_collateralOwner);
         }
     }
@@ -280,8 +286,11 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         require(pool.totalOf(targetAddress) > 0, "The value of the collateral is 0");
 
-
         addressProvider.getRewardDistribution().rewardUpdate(targetAddress);
+
+        uint256 debtValue = getDebtPool().totalOf(targetAddress);
+
+        require(debtValue >= minDebtValue, "The value of the debt is less than the minimum debt value");
 
         uint index;
         for (index = 0; index < pool.tokensCount(); index++) {
@@ -310,9 +319,9 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _auction.startPrice = auctionBeginPrice;
         _auction.intervalPrice = intervalPriceDiff;
         _auction.minPrice = defaultMinPrice;
-        _auction.startTime = now;
+        _auction.startTime = block.timestamp;
         _auction.intervalTime = intervalTimeDiff;
-        _auction.endTime = now + 60000;
+        _auction.endTime = block.timestamp + 60000;
         
         auctionList[_collateralOwner] = _auction;
 
