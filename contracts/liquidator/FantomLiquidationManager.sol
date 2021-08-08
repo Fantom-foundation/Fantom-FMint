@@ -271,6 +271,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         require(live, "Liquidation not live");
         // get the collateral pool
         IFantomDeFiTokenStorage pool = getCollateralPool();
+        // get the debt pool
+        IFantomDeFiTokenStorage debtPool = getDebtPool();
 
         require(!collateralIsEligible(targetAddress), "Collateral is not eligible for liquidation");
 
@@ -278,11 +280,17 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
 
         addressProvider.getRewardDistribution().rewardUpdate(targetAddress);
+
+        uint index;
+        for (index = 0; index < pool.tokensCount(); index++) {
+            uint256 collatBalance = pool.balanceOf(targetAddress, pool.tokens()[index]);
+            liquidatedVault[targetAddress][pool.tokens()[index]] += collatBalance;
+            pool.sub(targetAddress, pool.tokens()[index], collatBalance);
+        }
         
-        for (uint i = 0; i < pool.tokensCount(); i++) {
-            uint256 collatBalance = pool.balanceOf(targetAddress, pool.tokens()[i]);
-            liquidatedVault[targetAddress][pool.tokens()[i]] += collatBalance;
-            pool.sub(targetAddress, pool.tokens()[i], collatBalance);
+        for (index = 0; index < debtPool.tokensCount(); index++) {
+            uint256 debtBalance = debtPool.balanceOf(targetAddress, debtPool.tokens()[index]);
+            debtPool.sub(targetAddress, debtPool.tokens()[index], debtBalance);
         }
 
         if (auctionIndex[targetAddress] == 0) {
