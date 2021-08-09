@@ -248,7 +248,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         // Check if auction is finished or not
         bool auctionEnded = false;
 
-        if (liquidatedVault[_collateralOwner] == 0) {
+        if (liquidatedVault[_collateralOwner][_token] == 0) {
             auctionEnded = balanceOfRemainingCollateral(_collateralOwner) > 0;
         }
 
