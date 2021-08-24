@@ -58,6 +58,9 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
     // getDebtPool (abstract) returns the address of debt pool.
     function getDebtPool() public view returns (IFantomDeFiTokenStorage);
 
+    // getMinDebtValue is a minimum allowed debt value
+    function getMinDebtValue() public view returns (uint256);
+
     // checkDebtCanIncrease (abstract) checks if the specified
     // amount of debt can be added to the account
     // without breaking collateral to debt ratio rule.
@@ -103,6 +106,9 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
         // check low collateral ratio condition
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value");
 
+        // require that the resulting debt value isn't a dust amount
+        require(result != ERR_DUST_DEBT, "dust debt value");
+
         // sanity check for any non-covered condition
         require(result == ERR_NO_ERROR, "unexpected failure");
     }
@@ -146,11 +152,18 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
             return ERR_LOW_AMOUNT;
         }
 
+        // ensure that the resulting debt value isn't a dust amount
+        IFantomDeFiTokenStorage debtPool = getDebtPool();
+        uint256 resultingDebtValue = debtPool.totalOfInc(msg.sender, _token, _amount);
+        if (resultingDebtValue < getMinDebtValue()) {
+            return ERR_DUST_DEBT;
+        }
+
         // update the reward distribution for the account before the state changes
         rewardUpdate(msg.sender);
 
         // add the requested amount to the debt
-        getDebtPool().add(msg.sender, _token, _amount);
+        debtPool.add(msg.sender, _token, _amount);
 
         // update the fee pool
         feePool[_token] = feePool[_token].add(fee);
@@ -187,6 +200,9 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
         // check low collateral ratio condition
         require(result != ERR_LOW_COLLATERAL_RATIO, "insufficient collateral value");
 
+        // require that the resulting debt value isn't a dust amount
+        require(result != ERR_DUST_DEBT, "dust debt value");
+
         // sanity check for any non-covered condition
         require(result == ERR_NO_ERROR, "unexpected failure");
     }
@@ -217,6 +233,9 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
 
         // check low allowance condition
         require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
+
+        // require that the resulting debt value isn't a dust amount
+        require(result != ERR_DUST_DEBT, "dust debt value");
 
         // sanity check for any non-covered condition
         require(result == ERR_NO_ERROR, "unexpected failure");
@@ -251,6 +270,12 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
             return ERR_LOW_ALLOWANCE;
         }
 
+        // ensure that the resulting debt value isn't a dust amount
+        uint256 resultingDebtValue = pool.totalOfDec(msg.sender, _token, _amount);
+        if (resultingDebtValue != 0 && resultingDebtValue < getMinDebtValue()) {
+            return ERR_DUST_DEBT;
+        }
+
         // burn the tokens returned by the user first
         ERC20Burnable(_token).burnFrom(msg.sender, _amount);
 
@@ -281,6 +306,9 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
 
         // check low allowance condition
         require(result != ERR_LOW_ALLOWANCE, "insufficient allowance");
+
+        // require that the resulting debt value isn't a dust amount
+        require(result != ERR_DUST_DEBT, "dust debt value");
 
         // sanity check for any non-covered condition
         require(result == ERR_NO_ERROR, "unexpected failure");
