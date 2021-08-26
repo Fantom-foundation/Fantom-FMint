@@ -281,7 +281,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             require(debtAmount <= ERC20(_auction.debtList[index]).allowance(msg.sender, address(this)),
                 "Low allowance of debt token."
             );
-            ERC20(_auction.debtList[index]).safeTransferFrom(msg.sender, address(this), debtAmount);
+            ERC20(_auction.debtList[index]).safeTransferFrom(msg.sender, fantomFeeVault, debtAmount);
             _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(debtAmount);
         }
 
