@@ -188,7 +188,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     // rewardIsEligible checks if the account is eligible to receive any reward.
     function collateralIsEligible(address _account) public view returns (bool) {
-        return FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT)).checkCollateralCanDecrease(_account, getCollateralPool().tokens()[0], 0);
+        return FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT)).checkCollateralCanDecrease(_account, getCollateralPool().getToken(0), 0);
     }
 
     function getLiquidationList() external view returns (uint[] memory) {
@@ -282,7 +282,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 "Low allowance of debt token."
             );
             ERC20(_auction.debtList[index]).safeTransferFrom(msg.sender, fantomFeeVault, debtAmount);
-            _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(debtAmount);
+            _auction.debtValue[_auction.debtList[index]] = _auction.debtValue[_auction.debtList[index]].sub(debtAmount);
         }
 
         uint collateralPercent = calculateCollateralRatio(_auction.remainingPercent, offeringRatio, _auction.debtPercent, _percentage);
