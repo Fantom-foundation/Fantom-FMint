@@ -39,8 +39,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         uint intervalPrice;
         uint minPrice;
         uint round;
-        uint remainingPercent;
-        uint debtPercent;
         address[] collateralList;
         address[] debtList;
         mapping(address => uint) collateralValue;
@@ -216,8 +214,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         for (index = 0; index < _auction.collateralList.length; index++) {
             collateralList[index] = _auction.collateralList[index];
             collateralValue[index] = _auction.collateralValue[_auction.collateralList[index]]
-                .mul(pricePrecision * percentPrecision * percentPrecision)
-                .div(offeringRatio * _auction.remainingPercent * _auction.debtPercent);
+                .mul(offeringRatio)
+                .div(pricePrecision);
         }
         for (index = 0; index < _auction.debtList.length; index++) {
             debtList[index] = _auction.debtList[index];
@@ -260,12 +258,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         return totalValue;
     }
 
-    function calculateCollateralRatio(uint _remainingPercent, uint _offeringRatio, uint _debtPercent, uint _percentage) internal view returns (uint) {
-        return _percentage.mul(_offeringRatio).mul(_debtPercent)
-            .div(_remainingPercent)
-            .div(pricePrecision);
-    }
-
     function bidAuction(uint _nonce, uint _percentage) public nonReentrant {
         require(live, "Liquidation not live");
         require(auctionIndexer[_nonce] > 0, "Auction not found");
@@ -285,21 +277,22 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             _auction.debtValue[_auction.debtList[index]] = _auction.debtValue[_auction.debtList[index]].sub(debtAmount);
         }
 
-        uint collateralPercent = calculateCollateralRatio(_auction.remainingPercent, offeringRatio, _auction.debtPercent, _percentage);
+        uint collateralPercent = _percentage.mul(offeringRatio).div(pricePrecision);
 
         for (index = 0; index < _auction.collateralList.length; index++) {
             uint collatAmount = _auction.collateralValue[_auction.collateralList[index]]
                 .mul(collateralPercent).div(percentPrecision);
+            uint processedCollatAmount = _auction.collateralValue[_auction.collateralList[index]]
+                .mul(_percentage).div(percentPrecision);
             require(collatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
                 "Low allowance of collateral token."
             );
             ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, msg.sender, collatAmount);
-            _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(collatAmount);
+            ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, processedCollatAmount.sub(collatAmount));
+            _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(processedCollatAmount);
         }
 
-        _auction.debtPercent = _auction.debtPercent.sub(_auction.debtPercent.mul(_percentage).div(percentPrecision));
-        _auction.remainingPercent = _auction.remainingPercent.sub(_auction.remainingPercent.mul(collateralPercent).div(percentPrecision));
-        if (_auction.debtPercent == 0) {
+        if (_percentage == percentPrecision) {
             // Auction ended
             for (index = 0; index < _auction.collateralList.length; index++) {
                 uint collatAmount = _auction.collateralValue[_auction.collateralList[index]];
@@ -343,8 +336,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _tempAuction.startTime = block.timestamp;
         _tempAuction.intervalTime = intervalTimeDiff;
         _tempAuction.endTime = block.timestamp + auctionDuration;
-        _tempAuction.remainingPercent = percentPrecision;
-        _tempAuction.debtPercent = percentPrecision;
 
         auctionList.push(_tempAuction);
 
