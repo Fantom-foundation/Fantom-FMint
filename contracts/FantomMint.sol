@@ -72,6 +72,11 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         return fMintFee4dec;
     }
 
+    // getMinDebtValue returns the minimum debt value.
+    function getMinDebtValue() public view returns (uint256) {
+        return minDebtValue;
+    }
+
     // -------------------------------------------------------------
     // Pool balances and values
     // -------------------------------------------------------------

@@ -20,13 +20,13 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     using SafeMath for uint;
     using Address for address;
     using SafeERC20 for ERC20;
-    
+
     // increasing contract's collateral value.
     event Deposited(address indexed token, address indexed user, uint amount);
 
     // decreasing contract's collateral value.
     event Withdrawn(address indexed token, address indexed user, uint amount);
-    
+
     event AuctionStarted(uint indexed nonce, address indexed user);
     event AuctionRestarted(uint indexed nonce, address indexed user);
 
@@ -59,7 +59,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
 
     // mapping(address => AuctionInformation[]) public auctionList;
-    
+
     // mapping(address => uint) public auctionIndex;
 
     // addressProvider represents the connection to other FMint related
@@ -78,7 +78,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     uint internal intervalTimeDiff;
     uint internal auctionBeginPrice;
     uint internal defaultMinPrice;
-    uint internal minDebtValue;
     uint internal pricePrecision;
     uint internal percentPrecision;
     uint internal auctionDuration;
@@ -102,7 +101,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         intervalPriceDiff = 1000;
         intervalTimeDiff = 1;
         defaultMinPrice = 10 ** 8;
-        minDebtValue = 100;
         pricePrecision = 10 ** 8;
         percentPrecision = 10 ** 8;
         auctionDuration = 80000;
@@ -131,10 +129,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     function updateAuctionMinPrice(uint _defaultMinPrice) external onlyOwner {
         defaultMinPrice = _defaultMinPrice;
-    }
-
-    function updateMinimumDebtValue(uint _minDebtValue) external onlyOwner {
-        minDebtValue = _minDebtValue;
     }
 
     function updatePercentPrecision(uint _percentPrecision) external onlyOwner {
@@ -249,7 +243,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         require(auctionIndexer[_nonce] > 0, "Auction not found");
         AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
         require(_auction.round > 0, "Auction not found");
-        
+
         uint totalValue = 0;
         for (uint i = 0; i < _auction.debtList.length; i++) {
             totalValue += _auction.debtValue[_auction.debtList[i]];
@@ -323,10 +317,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         addressProvider.getRewardDistribution().rewardUpdate(_targetAddress);
 
-        uint debtValue = getDebtPool().totalOf(_targetAddress);
-
-        require(debtValue >= minDebtValue, "The value of the debt is less than the minimum debt value");
-
         AuctionInformation memory _tempAuction;
         _tempAuction.owner = _targetAddress;
         _tempAuction.round = 1;
@@ -355,7 +345,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 _auction.collateralValue[tokenAddress] = tokenBalance;
             }
         }
-        
+
         tokenCount = debtPool.tokensCount();
         for (index = 0; index < tokenCount; index++) {
             tokenAddress = debtPool.getToken(index);

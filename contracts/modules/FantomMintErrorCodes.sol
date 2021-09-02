@@ -55,4 +55,7 @@ contract FantomMintErrorCodes {
 
 	// Error Code: Reward can not be claimed, collateral to debt ration too low.
 	uint256 public constant ERR_REWARD_CLAIM_REJECTED = 0x100b;
+
+	// Error Code: Debt must be either 0 or above the threshold.
+	uint256 public constant ERR_DUST_DEBT = 0x100c;
 }
