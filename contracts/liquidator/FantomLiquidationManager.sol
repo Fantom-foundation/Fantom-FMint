@@ -278,14 +278,16 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 .mul(collateralPercent).div(percentPrecision);
             uint processedCollatAmount = _auction.collateralValue[_auction.collateralList[index]]
                 .mul(_percentage).div(percentPrecision);
-            require(collatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
-                "Low allowance of collateral token."
-            );
-            ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, msg.sender, collatAmount);
-            ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, processedCollatAmount.sub(collatAmount));
+            // require(collatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
+            //     "Low allowance of collateral token."
+            // );
+            // ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, msg.sender, collatAmount);
+            // ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, processedCollatAmount.sub(collatAmount));
+            FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index],msg.sender, collatAmount);
+            FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index],msg.sender, processedCollatAmount.sub(collatAmount));
             _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(processedCollatAmount);
         }
-
+        
         if (_percentage == percentPrecision) {
             // Auction ended
             for (index = 0; index < _auction.collateralList.length; index++) {
@@ -293,7 +295,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 require(collatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
                     "Low allowance of collateral token."
                 );
-                ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, collatAmount);
+                //ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, collatAmount);
+                FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index], _auction.owner, collatAmount);
                 _auction.collateralValue[_auction.collateralList[index]] = 0;
             }
             uint replaceNonce = auctionList[auctionList.length - 1].nonce;
