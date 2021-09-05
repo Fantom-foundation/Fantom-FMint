@@ -192,11 +192,12 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     function getLiquidationDetails(uint _nonce) external view returns (
-        uint, uint, address[] memory, uint[] memory, address[] memory, uint[] memory
+        uint, uint, uint, address[] memory, uint[] memory, address[] memory, uint[] memory
     ) {
         require(auctionIndexer[_nonce] > 0, "Auction not found");
         AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
-        uint timeDiff = block.timestamp - _auction.startTime;
+        //uint timeDiff = block.timestamp - _auction.startTime;
+        uint timeDiff = block.timestamp.sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
         uint offeringRatio = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
 
@@ -215,7 +216,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             debtList[index] = _auction.debtList[index];
             debtValue[index] = _auction.debtValue[_auction.debtList[index]];
         }
-        return (_auction.startTime, _auction.endTime, collateralList, collateralValue, debtList, debtValue);
+        return (offeringRatio, _auction.startTime, _auction.endTime, collateralList, collateralValue, debtList, debtValue);
     }
 
     function updateLiquidation(uint _nonce) public nonReentrant auth {
@@ -259,7 +260,10 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         require(_auction.round > 0, "Auction not found");
         require(percentPrecision >= _percentage, "Collateral is not sufficient to buy.");
 
-        uint offeringRatio = _auction.startPrice.add(block.timestamp.sub(_auction.startTime).mul(_auction.intervalPrice).div(_auction.intervalTime));
+        //uint offeringRatio = _auction.startPrice.add(block.timestamp.sub(_auction.startTime).mul(_auction.intervalPrice).div(_auction.intervalTime));
+        uint timeDiff = block.timestamp.sub(_auction.startTime);
+        uint currentRound = timeDiff.div(_auction.intervalTime);
+        uint offeringRatio = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
 
         uint index;
         for (index = 0; index < _auction.debtList.length; index++) {
@@ -284,7 +288,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             // ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, msg.sender, collatAmount);
             // ERC20(_auction.collateralList[index]).safeTransferFrom(collateralContract, _auction.owner, processedCollatAmount.sub(collatAmount));
             FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index],msg.sender, collatAmount);
-            FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index],msg.sender, processedCollatAmount.sub(collatAmount));
+            FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index],_auction.owner, processedCollatAmount.sub(collatAmount));
             _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(processedCollatAmount);
         }
         
