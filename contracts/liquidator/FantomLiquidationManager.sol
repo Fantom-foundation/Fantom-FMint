@@ -58,13 +58,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     AuctionInformation[] internal auctionList;
     mapping(uint => uint) public auctionIndexer;
 
-
-    // mapping(address => AuctionInformation[]) public auctionList;
-
-    // mapping(address => uint) public auctionIndex;
-
-    // addressProvider represents the connection to other FMint related
-    // contracts.
+    // addressProvider represents the connection to other FMint related contracts.
     IFantomMintAddressProvider public addressProvider;
 
     mapping(address => bool) public admins;
