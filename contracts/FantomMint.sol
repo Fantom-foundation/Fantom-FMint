@@ -179,4 +179,14 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
 
         return (_price, _digits);
     }
+
+    modifier onlyLiquidationManager() {
+        require(msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted"); 
+        _;       
+    }
+    
+   
+    function settleLiquidationBid(address _token, address _destination, uint256 _amount) public onlyLiquidationManager {
+        ERC20(_token).transfer(_destination, _amount);
+    }
 }
