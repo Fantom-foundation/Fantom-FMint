@@ -39,6 +39,13 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
         _;
     }
 
+    // onlyMinterOrLiquidationManager modifier controls access to sensitive functions
+    // to allow only calls from fMint Minter or fLiquidationManager contract.
+    modifier onlyMinterOrLiquidationManager() {
+        require(msg.sender == address(addressProvider.getFantomMint()) || msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted"); 
+        _;       
+    }
+
     // initialize initializes the instance of the module.
     function initialize(address _addressProvider, bool _dustAdt) public initializer {
         // keep the address provider connecting contracts together
@@ -170,7 +177,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 
     // add adds specified amount of tokens to given account
     // and updates the total supply references.
-    function add(address _account, address _token, uint256 _amount) public onlyMinter {
+    function add(address _account, address _token, uint256 _amount) public onlyMinterOrLiquidationManager {
         // update the token balance of the account
         balance[_account][_token] = balance[_account][_token].add(_amount);
 
@@ -183,7 +190,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 
     // sub removes specified amount of tokens from given account
     // and updates the total balance references.
-    function sub(address _account, address _token, uint256 _amount) public onlyMinter {
+    function sub(address _account, address _token, uint256 _amount) public onlyMinterOrLiquidationManager {
         // update the balance of the account
         balance[_account][_token] = balance[_account][_token].sub(_amount);
 

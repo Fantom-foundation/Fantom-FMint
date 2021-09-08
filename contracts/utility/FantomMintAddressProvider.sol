@@ -28,6 +28,7 @@ contract FantomMintAddressProvider is Initializable, Ownable, IFantomMintAddress
     // Module identifiers used by the address storage
     // ----------------------------------------------
     //
+    bytes32 private constant MOD_LIQUIDATION_MANAGER = "liquidation_manager";
     bytes32 private constant MOD_FANTOM_MINT = "fantom_mint";
     bytes32 private constant MOD_COLLATERAL_POOL = "collateral_pool";
     bytes32 private constant MOD_DEBT_POOL = "debt_pool";
@@ -43,6 +44,11 @@ contract FantomMintAddressProvider is Initializable, Ownable, IFantomMintAddress
     // _addressPool stores addresses to the different modules
     // identified their common names.
     mapping(bytes32 => address) private _addressPool;
+
+
+    // LiquidationManager event is emitted when
+    // a new liquidation address is set.
+    event LiquidationManagerChanged(address newAddress);
 
     // MinterChanged even is emitted when
     // a new fMint Minter address is set.
@@ -183,6 +189,24 @@ contract FantomMintAddressProvider is Initializable, Ownable, IFantomMintAddress
 
         // inform listeners and seekers about the change
         emit RewardTokenChanged(_addr);
+    }
+
+    /**
+     * getLiquidationManager returns the address of the FantomLiquidationManager contract.
+     */
+    function getFantomLiquidationManager() public view returns (address) {
+        return (getAddress(MOD_LIQUIDATION_MANAGER));
+    }
+
+        /**
+     * setFantomMint modifies the address of the Fantom fMint contract.
+     */
+    function setFantomLiquidationManager(address _addr) public onlyOwner {
+        // make the change
+        setAddress(MOD_LIQUIDATION_MANAGER, _addr);
+
+        // inform listeners and seekers about the change
+        emit LiquidationManagerChanged(_addr);
     }
 
     /**

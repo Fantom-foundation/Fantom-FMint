@@ -19,6 +19,12 @@ import "./IERC20Detailed.sol";
  * gas on repeated access.
  */
 interface IFantomMintAddressProvider {
+	// getFantomLiquidationManager returns the address of FantomLiquidationManager contract.
+	function getFantomLiquidationManager() external view returns (address);
+
+	// setFantomLiquidationManager modifies the address of the FantomLiquidationManager contract.
+	function setFantomLiquidationManager(address _addr) external;
+	
 	// getFantomMint returns the address of the Fantom fMint contract.
 	function getFantomMint() external view returns (IFantomMintBalanceGuard);
 
