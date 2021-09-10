@@ -55,8 +55,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     bytes32 private constant MOD_TOKEN_REGISTRY = "token_registry";
     bytes32 private constant MOD_ERC20_REWARD_TOKEN = "erc20_reward_token";
 
-    AuctionInformation[] internal auctionList;
-    mapping(uint => uint) public auctionIndexer;
+    mapping(uint => AuctionInformation) internal auctionIndexer;
 
     // addressProvider represents the connection to other FMint related contracts.
     IFantomMintAddressProvider public addressProvider;
@@ -178,19 +177,11 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         return FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT)).checkCollateralCanDecrease(_account, getCollateralPool().getToken(0), 0);
     }
 
-    function getLiquidationList() external view returns (uint[] memory) {
-        uint[] memory nonces = new uint[](auctionList.length);
-        for (uint index = 0; index < auctionList.length; index++) {
-            nonces[index] = auctionList[index].nonce;
-        }
-        return nonces;
-    }
-
     function getLiquidationDetails(uint _nonce) external view returns (
         uint, uint, uint, address[] memory, uint[] memory, address[] memory, uint[] memory
     ) {
-        require(auctionIndexer[_nonce] > 0, "Auction not found");
-        AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
+        require(auctionIndexer[_nonce].round > 0, "Auction not found");
+        AuctionInformation storage _auction = auctionIndexer[_nonce];
         uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
         uint offeringRatio = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
@@ -215,8 +206,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     function updateLiquidation(uint _nonce) public nonReentrant auth {
         require(live, "Liquidation not live");
-        require(auctionIndexer[_nonce] > 0, "Auction not found");
-        AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
+        require(auctionIndexer[_nonce].round > 0, "Auction not found");
+        AuctionInformation storage _auction = auctionIndexer[_nonce];
         require(_auction.round > 0, "Auction not found");
         uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
@@ -235,8 +226,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     }
 
     function balanceOfRemainingDebt(uint _nonce) public view returns (uint) {
-        require(auctionIndexer[_nonce] > 0, "Auction not found");
-        AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
+        require(auctionIndexer[_nonce].round > 0, "Auction not found");
+        AuctionInformation storage _auction = auctionIndexer[_nonce];
         require(_auction.round > 0, "Auction not found");
 
         uint totalValue = 0;
@@ -249,14 +240,15 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     function bidAuction(uint _nonce, uint _percentage) public nonReentrant {
         require(live, "Liquidation not live");
-        require(auctionIndexer[_nonce] > 0, "Auction not found");
+        require(auctionIndexer[_nonce].round > 0, "Auction not found");
         require(_percentage > 0, "Percent must be greater than 0");
-        AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
+        AuctionInformation storage _auction = auctionIndexer[_nonce];
         require(_auction.round > 0, "Auction not found");
-        uint actualPercentage = _percentage.mul(percentPrecision).div(_auction.remainingPercentage);
-        if (actualPercentage > percentPrecision) {
-            actualPercentage = percentPrecision;
+        if (_percentage > _auction.remainingPercentage) {
+            _percentage = _auction.remainingPercentage;
         }
+
+        uint actualPercentage = _percentage.mul(percentPrecision).div(_auction.remainingPercentage);
 
         uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
@@ -277,11 +269,14 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         for (index = 0; index < _auction.collateralList.length; index++) {
             uint collatAmount = _auction.collateralValue[_auction.collateralList[index]]
                 .mul(collateralPercent).div(percentPrecision);
-            require(collatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
+            uint processedCollatAmount = _auction.collateralValue[_auction.collateralList[index]]
+                .mul(actualPercentage).div(percentPrecision);
+            require(processedCollatAmount <= ERC20(_auction.collateralList[index]).allowance(collateralContract, address(this)),
                 "Low allowance of collateral token."
             );
             FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index], msg.sender, collatAmount);
-            _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(collatAmount);
+            FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index], _auction.owner, processedCollatAmount.sub(collatAmount));
+            _auction.collateralValue[_auction.collateralList[index]] = _auction.collateralValue[_auction.collateralList[index]].sub(processedCollatAmount);
         }
 
         _auction.remainingPercentage = _auction.remainingPercentage.sub(_percentage);
@@ -296,11 +291,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 FantomMint(fantomMintContract).settleLiquidationBid(_auction.collateralList[index], _auction.owner, collatAmount);
                 _auction.collateralValue[_auction.collateralList[index]] = 0;
             }
-            uint replaceNonce = auctionList[auctionList.length - 1].nonce;
-            auctionIndexer[replaceNonce] = auctionIndexer[_nonce];
-            auctionList[auctionIndexer[_nonce] - 1] = auctionList[auctionList.length - 1];
-            auctionList.pop();
-            auctionIndexer[_nonce] = 0;
         }
     }
 
@@ -327,9 +317,11 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _tempAuction.intervalTime = intervalTimeDiff;
         _tempAuction.endTime = _now() + auctionDuration;
 
-        auctionList.push(_tempAuction);
+        totalNonce += 1;
+        auctionIndexer[totalNonce] = _tempAuction;
 
-        AuctionInformation storage _auction = auctionList[auctionList.length - 1];
+        AuctionInformation storage _auction = auctionIndexer[totalNonce];
+        _auction.nonce = totalNonce;
 
         uint index;
         uint tokenCount;
@@ -357,11 +349,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             }
         }
 
-        totalNonce += 1;
         _auction.remainingPercentage = percentPrecision;
-        _auction.nonce = totalNonce;
-
-        auctionIndexer[totalNonce] = auctionList.length;
 
         emit AuctionStarted(totalNonce, _targetAddress);
     }
