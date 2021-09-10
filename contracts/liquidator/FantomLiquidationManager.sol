@@ -191,7 +191,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     ) {
         require(auctionIndexer[_nonce] > 0, "Auction not found");
         AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
-        uint timeDiff = block.timestamp.sub(_auction.startTime);
+        uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
         uint offeringRatio = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
 
@@ -218,18 +218,18 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         require(auctionIndexer[_nonce] > 0, "Auction not found");
         AuctionInformation storage _auction = auctionList[auctionIndexer[_nonce] - 1];
         require(_auction.round > 0, "Auction not found");
-        uint timeDiff = block.timestamp.sub(_auction.startTime);
+        uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
         uint _nextPrice = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
-        if (_auction.endTime >= block.timestamp || _nextPrice >= _auction.minPrice) {
+        if (_auction.endTime >= _now() || _nextPrice >= _auction.minPrice) {
             // Restart the Auction
             _auction.round = _auction.round + 1;
             _auction.startPrice = auctionBeginPrice;
             _auction.intervalPrice = intervalPriceDiff;
             _auction.minPrice = defaultMinPrice;
-            _auction.startTime = block.timestamp;
+            _auction.startTime = _now();
             _auction.intervalTime = intervalTimeDiff;
-            _auction.endTime = block.timestamp.add(auctionDuration);
+            _auction.endTime = _now().add(auctionDuration);
             emit AuctionRestarted(_nonce, _auction.owner);
         }
     }
@@ -258,7 +258,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
             actualPercentage = percentPrecision;
         }
 
-        uint timeDiff = block.timestamp.sub(_auction.startTime);
+        uint timeDiff = _now().sub(_auction.startTime);
         uint currentRound = timeDiff.div(_auction.intervalTime);
         uint offeringRatio = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
 
@@ -323,9 +323,9 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         _tempAuction.startPrice = auctionBeginPrice;
         _tempAuction.intervalPrice = intervalPriceDiff;
         _tempAuction.minPrice = defaultMinPrice;
-        _tempAuction.startTime = block.timestamp;
+        _tempAuction.startTime = _now();
         _tempAuction.intervalTime = intervalTimeDiff;
-        _tempAuction.endTime = block.timestamp + auctionDuration;
+        _tempAuction.endTime = _now() + auctionDuration;
 
         auctionList.push(_tempAuction);
 
@@ -369,4 +369,9 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     function updateLiquidationFlag(bool _live) external auth {
         live = _live;
     }
+
+    function _now() internal view returns (uint256) {
+        return now;
+    }
+
 }
