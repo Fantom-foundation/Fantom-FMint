@@ -38,7 +38,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         uint startPrice;
         uint intervalPrice;
         uint minPrice;
-        uint round;
         uint remainingPercentage;
         address[] collateralList;
         address[] debtList;
@@ -208,7 +207,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         uint _nextPrice = _auction.startPrice.add(currentRound.mul(_auction.intervalPrice));
         if (_auction.endTime >= _now() || _nextPrice >= _auction.minPrice) {
             // Restart the Auction
-            _auction.round = _auction.round + 1;
             _auction.startPrice = auctionBeginPrice;
             _auction.intervalPrice = intervalPriceDiff;
             _auction.minPrice = defaultMinPrice;
@@ -295,7 +293,6 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         AuctionInformation memory _tempAuction;
         _tempAuction.owner = _targetAddress;
-        _tempAuction.round = 1;
         _tempAuction.startPrice = auctionBeginPrice;
         _tempAuction.intervalPrice = intervalPriceDiff;
         _tempAuction.minPrice = defaultMinPrice;
