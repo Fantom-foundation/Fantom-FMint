@@ -1,4 +1,8 @@
-pragma solidity ^0.5.0;
+> tokenRegistry.tokensCount.call();
+2
+
+> tokenRegistry.tokensList.call(0);
+"0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83"pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/ownership/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
