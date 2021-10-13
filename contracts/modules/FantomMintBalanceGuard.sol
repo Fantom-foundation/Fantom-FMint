@@ -89,18 +89,19 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         return max;
     }
 
-    // maxToWithdrawAfter calculates the max amount of tokens account can withdraw after adding collateral and debt
+    // maxToWithdrawWithChanges calculates the max amount of tokens account can withdraw after adding collateral and debt
     // and still obey the given debt to collateral ratio.
-    function maxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+    function maxToWithdrawWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
+        require(msg.sender == address(0), "view function only");
         // how many tokens the account has now
         uint256 balance = getCollateralPool().balanceOf(_account, _token);
 
         // what is the top withdraw amount
-        uint256 max = _maxToWithdrawAfter(_account, _token, _ratio, _addCollateral, _addDebt);
+        uint256 max = _maxToWithdrawWithChanges(_account, _token, _ratio, collateralToken, collateralDiff, debtToken, debtDiff);
 
         // can the account withdraw them all?
-        if (balance + _addCollateral < max) {
-            return balance + _addCollateral;
+        if (balance < max) {
+            return balance;
         }
         return max;
     }
@@ -131,16 +132,16 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         return cCollateralValue.sub(minCollateralValue).mul(_digits).div(_price);
     }
 
-    // _maxToWithdrawAfter calculates the max amount of the given token the account can withdraw after adding collateral and debt
+    // _maxToWithdrawWithChanges calculates the max amount of the given token the account can withdraw after adding collateral and debt
     // safely and still obey given debt to collateral ratio.
-    function _maxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) internal view returns (uint256) {
+    function _maxToWithdrawWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) internal view returns (uint256) {
         // get token price, make sure not to divide by zero
         (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
         require(_price != 0, "collateral token has no value");
 
         // calculate the collateral and debt situation after adding collateral and debt
-        uint256 cDebtValue = debtValueOf(_account, address(0x0), _addDebt);
-        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), _addCollateral);
+        uint256 cDebtValue = debtValueOf(_account, debtToken, debtDiff);
+        uint256 cCollateralValue = collateralValueOf(_account, collateralToken, collateralDiff);
 
         // what is the minimal collateral value required?
         uint256 minCollateralValue = cDebtValue
@@ -216,16 +217,17 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         .div(_price);
     }
 
-    // maxToMintAfter calculates the maximum amount of tokens the address can mint after adding collateral and minting
+    // maxToMintWithChanges calculates the maximum amount of tokens the address can mint after adding collateral and minting
     // and still stay safely within the requested collateral to debt ratio.
-    function maxToMintAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+    function maxToMintWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
+        require(msg.sender == address(0), "view function only");
         // get token price, make sure not to divide by zero
         (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
         require(_price != 0, "collateral token has no value");
 
         // calculate collateral and debt situation after adding collateral and minting
-        uint256 cDebtValue = debtValueOf(_account, address(0x0), _addCollateral);
-        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), _addDebt);
+        uint256 cDebtValue = debtValueOf(_account, debtToken, debtDiff);
+        uint256 cCollateralValue = collateralValueOf(_account, collateralToken, collateralDiff);
 
         // what is the minimal collateral value required?
         uint256 minCollateralValue = cDebtValue

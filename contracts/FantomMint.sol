@@ -138,9 +138,9 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         return maxToWithdraw(_account, _token, _ratio);
     }
 
-    // getMaxToWithdrawAfter returns the max amount of tokens to withdraw with the given ratio, additional collateral and debt.
-    function getMaxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
-        return maxToWithdrawAfter(_account, _token, _ratio, _addCollateral, _addDebt);
+    // getMaxToWithdrawWithChanges returns the max amount of tokens to withdraw with the given ratio, additional collateral and debt.
+    function getMaxToWithdrawWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
+        return maxToWithdrawWithChanges(_account, _token, _ratio, collateralToken, collateralDiff, debtToken, debtDiff);
     }
 
     // getMaxToMint returns the max amount of tokens to mint with the given ratio.
@@ -148,9 +148,9 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         return maxToMint(_account, _token, _ratio);
     }
 
-    // getMaxToMintAfter returns the max amount of tokens to mint with the given ratio, additional collateral and debt.
-    function getMaxToMintAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
-        return maxToMintAfter(_account, _token, _ratio, _addCollateral, _addDebt);
+    // getMaxToMintWithChanges returns the max amount of tokens to mint with the given ratio, additional collateral and debt.
+    function getMaxToMintWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
+        return maxToMintWithChanges(_account, _token, _ratio, collateralToken, collateralDiff, debtToken, debtDiff);
     }
 
     // -------------------------------------------------------------
