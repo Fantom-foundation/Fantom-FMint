@@ -139,8 +139,21 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
     }
 
     // getMaxToWithdrawWithChanges returns the max amount of tokens to withdraw with the given ratio, additional collateral and debt.
-    function getMaxToWithdrawWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
-        return maxToWithdrawWithChanges(_account, _token, _ratio, collateralToken, collateralDiff, debtToken, debtDiff);
+    function getMaxToWithdrawWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public returns (uint256) {
+        require(msg.sender == address(0), "view function only");
+
+        if (collateralDiff > 0) {
+            getCollateralPool().add(_account, collateralToken, uint256(collateralDiff));
+        } else if (collateralDiff < 0) {
+            getCollateralPool().sub(_account, collateralToken, uint256(-collateralDiff));
+        }
+        if (debtDiff > 0) {
+            getDebtPool().add(_account, debtToken, uint256(debtDiff));
+        } else if (debtDiff < 0) {
+            getDebtPool().sub(_account, debtToken, uint256(-debtDiff));
+        }
+
+        return maxToWithdraw(_account, _token, _ratio);
     }
 
     // getMaxToMint returns the max amount of tokens to mint with the given ratio.
@@ -149,8 +162,21 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
     }
 
     // getMaxToMintWithChanges returns the max amount of tokens to mint with the given ratio, additional collateral and debt.
-    function getMaxToMintWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public view returns (uint256) {
-        return maxToMintWithChanges(_account, _token, _ratio, collateralToken, collateralDiff, debtToken, debtDiff);
+    function getMaxToMintWithChanges(address _account, address _token, uint256 _ratio, address collateralToken, int256 collateralDiff, address debtToken, int256 debtDiff) public returns (uint256) {
+        require(msg.sender == address(0), "view function only");
+
+        if (collateralDiff > 0) {
+            getCollateralPool().add(_account, collateralToken, uint256(collateralDiff));
+        } else if (collateralDiff < 0) {
+            getCollateralPool().sub(_account, collateralToken, uint256(-collateralDiff));
+        }
+        if (debtDiff > 0) {
+            getDebtPool().add(_account, debtToken, uint256(debtDiff));
+        } else if (debtDiff < 0) {
+            getDebtPool().sub(_account, debtToken, uint256(-debtDiff));
+        }
+
+        return maxToMint(_account, _token, _ratio);
     }
 
     // -------------------------------------------------------------
