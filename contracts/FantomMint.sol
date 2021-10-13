@@ -138,9 +138,19 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         return maxToWithdraw(_account, _token, _ratio);
     }
 
+    // getMaxToWithdrawAfter returns the max amount of tokens to withdraw with the given ratio, additional collateral and debt.
+    function getMaxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+        return maxToWithdrawAfter(_account, _token, _ratio, _addCollateral, _addDebt);
+    }
+
     // getMaxToMint returns the max amount of tokens to mint with the given ratio.
     function getMaxToMint(address _account, address _token, uint256 _ratio) public view returns (uint256) {
         return maxToMint(_account, _token, _ratio);
+    }
+
+    // getMaxToMintAfter returns the max amount of tokens to mint with the given ratio, additional collateral and debt.
+    function getMaxToMintAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+        return maxToMintAfter(_account, _token, _ratio, _addCollateral, _addDebt);
     }
 
     // -------------------------------------------------------------

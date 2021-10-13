@@ -89,6 +89,22 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         return max;
     }
 
+    // maxToWithdrawAfter calculates the max amount of tokens account can withdraw after adding collateral and debt
+    // and still obey the given debt to collateral ratio.
+    function maxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+        // how many tokens the account has now
+        uint256 balance = getCollateralPool().balanceOf(_account, _token);
+
+        // what is the top withdraw amount
+        uint256 max = _maxToWithdrawAfter(_account, _token, _ratio, _addCollateral, _addDebt);
+
+        // can the account withdraw them all?
+        if (balance + _addCollateral < max) {
+            return balance + _addCollateral;
+        }
+        return max;
+    }
+
     // _maxToWithdraw calculates the max amount of the given token the account can withdraw
     // safely and still obey given debt to collateral ratio.
     function _maxToWithdraw(address _account, address _token, uint256 _ratio) internal view returns (uint256) {
@@ -99,6 +115,32 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         // calculate current collateral and debt situation
         uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
+
+        // what is the minimal collateral value required?
+        uint256 minCollateralValue = cDebtValue
+        .mul(_ratio)
+        .div(collateralRatioDecimalsCorrection);
+
+        // check if we are safely over the required collateral ratio
+        if (cCollateralValue < minCollateralValue) {
+            return 0;
+        }
+
+        // calculate the excessive value and convert it
+        // to the amount of tokens using price
+        return cCollateralValue.sub(minCollateralValue).mul(_digits).div(_price);
+    }
+
+    // _maxToWithdrawAfter calculates the max amount of the given token the account can withdraw after adding collateral and debt
+    // safely and still obey given debt to collateral ratio.
+    function _maxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) internal view returns (uint256) {
+        // get token price, make sure not to divide by zero
+        (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
+        require(_price != 0, "collateral token has no value");
+
+        // calculate the collateral and debt situation after adding collateral and debt
+        uint256 cDebtValue = debtValueOf(_account, address(0x0), _addDebt);
+        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), _addCollateral);
 
         // what is the minimal collateral value required?
         uint256 minCollateralValue = cDebtValue
@@ -153,6 +195,37 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         // calculate current collateral and debt situation\
         uint256 cDebtValue = debtValueOf(_account, address(0x0), 0);
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
+
+        // what is the minimal collateral value required?
+        uint256 minCollateralValue = cDebtValue
+        .mul(_ratio)
+        .div(collateralRatioDecimalsCorrection);
+
+        // if the account is under-collateralized already,
+        // no tokens can be added
+        if (cCollateralValue < minCollateralValue) {
+            return 0;
+        }
+
+        // what's the largest possible debt amount allowed?
+        return cCollateralValue
+        .sub(minCollateralValue)
+        .mul(collateralRatioDecimalsCorrection)
+        .div(getCollateralLowestDebtRatio4dec()).sub(1)
+        .mul(_digits)
+        .div(_price);
+    }
+
+    // maxToMintAfter calculates the maximum amount of tokens the address can mint after adding collateral and minting
+    // and still stay safely within the requested collateral to debt ratio.
+    function maxToMintAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256) {
+        // get token price, make sure not to divide by zero
+        (uint256 _price, uint256 _digits) = getExtendedPrice(_token);
+        require(_price != 0, "collateral token has no value");
+
+        // calculate collateral and debt situation after adding collateral and minting
+        uint256 cDebtValue = debtValueOf(_account, address(0x0), _addCollateral);
+        uint256 cCollateralValue = collateralValueOf(_account, address(0x0), _addDebt);
 
         // what is the minimal collateral value required?
         uint256 minCollateralValue = cDebtValue

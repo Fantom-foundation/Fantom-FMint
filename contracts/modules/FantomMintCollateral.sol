@@ -54,6 +54,10 @@ contract FantomMintCollateral is Initializable, ReentrancyGuard, FantomMintError
     // which can be withdrawn and still be withing the given collateral to debt rate.
     function getMaxToWithdraw(address _account, address _token, uint256 _ratio) public view returns (uint256);
 
+    // getMaxToWithdrawAfter (abstract) calculates the maximal amount of given token collateral after adding collateral and debt
+    // which can be withdrawn and still be withing the given collateral to debt rate.
+    function getMaxToWithdrawAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256);
+
     // getPrice (abstract) returns the price of given ERC20 token using on-chain oracle
     // expression of an exchange rate between the token and base denomination.
     function getPrice(address _token) public view returns (uint256);

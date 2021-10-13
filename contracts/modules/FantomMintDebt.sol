@@ -78,6 +78,10 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
     // which will satisfy the given collateral to debt ratio, if added.
     function getMaxToMint(address _account, address _token, uint256 _ratio) public view returns (uint256);
 
+    // getMaxToMintAfter (abstract) calculates the maximum amount of given token after adding collateral and debt
+    // which will satisfy the given collateral to debt ratio, if added.
+    function getMaxToMintAfter(address _account, address _token, uint256 _ratio, uint _addCollateral, uint256 _addDebt) public view returns (uint256);
+
     // -------------------------------------------------------------
     // Debt management functions below, the actual minter work
     // -------------------------------------------------------------
