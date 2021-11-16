@@ -40,7 +40,7 @@ Notes:
 - The amount of the collateral that bidders receive don't seem correct. The borrower seem
   to be refunded too much.`);
 
-contract('Unit Test for FantomLiquidationManager', function([
+contract('Unit Test for FantomLiquidationManager', function ([
   owner,
   admin,
   borrower,
@@ -48,7 +48,7 @@ contract('Unit Test for FantomLiquidationManager', function([
   bidder2,
   fantomFeeVault
 ]) {
-  beforeEach(async function() {
+  beforeEach(async function () {
     /** all the necessary setup  */
     this.fantomMintAddressProvider = await FantomMintAddressProvider.new({
       from: owner
@@ -192,7 +192,7 @@ contract('Unit Test for FantomLiquidationManager', function([
     /** all the necesary setup */
   });
 
-  describe('depositing collateral and minting fUSD', function() {
+  describe('depositing collateral and minting fUSD', function () {
     /*  it('gets the price of wFTM', async function() {
             // check the initial value of wFTM
             const price = await this.mockPriceOracleProxy.getPrice(this.mockToken.address);
@@ -202,7 +202,7 @@ contract('Unit Test for FantomLiquidationManager', function([
             expect(weiToEther(price).toString()).to.be.equal('1');        
         }) */
 
-    it('Scenario 1', async function() {
+    it('Scenario 1', async function () {
       console.log(`
             Scenario 1:
             Borrower approves and deposits 9999 wFTM, 
@@ -271,7 +271,7 @@ contract('Unit Test for FantomLiquidationManager', function([
 
       console.log(`
             *Event AuctionStarted should be emitted with correct values: nonce = 1, user = borrower`);
-      expectEvent.inLogs(result.logs, 'AuctionStarted', {
+      expectEvent(result, 'AuctionStarted', {
         nonce: new BN('1'),
         user: borrower
       });
@@ -343,7 +343,7 @@ contract('Unit Test for FantomLiquidationManager', function([
       );
     });
 
-    it('Scenario 2', async function() {
+    it('Scenario 2', async function () {
       console.log(`
             Scenario 2:
             Borrower approves and deposits 9999 wFTM 
@@ -412,7 +412,7 @@ contract('Unit Test for FantomLiquidationManager', function([
 
       console.log(`
             *Event AuctionStarted should be emitted with correct values: nonce = 1, user = borrower`);
-      expectEvent.inLogs(result.logs, 'AuctionStarted', {
+      expectEvent(result, 'AuctionStarted', {
         nonce: new BN('1'),
         user: borrower
       });
@@ -491,7 +491,7 @@ contract('Unit Test for FantomLiquidationManager', function([
       expect(weiToEther(balance) * 1).to.be.equal(4999.5);
     });
 
-    it('Scenario 3', async function() {
+    it('Scenario 3', async function () {
       console.log(`
             Scenario 3:
             Borrower approves and deposits 9999 wFTM, 
@@ -561,7 +561,7 @@ contract('Unit Test for FantomLiquidationManager', function([
 
       console.log(`
             *Event AuctionStarted should be emitted with correct values: nonce = 1, user = borrower`);
-      expectEvent.inLogs(result.logs, 'AuctionStarted', {
+      expectEvent.(result, 'AuctionStarted', {
         nonce: new BN('1'),
         user: borrower
       });
