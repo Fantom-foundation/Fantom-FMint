@@ -561,7 +561,7 @@ contract('Unit Test for FantomLiquidationManager', function ([
 
       console.log(`
             *Event AuctionStarted should be emitted with correct values: nonce = 1, user = borrower`);
-      expectEvent.(result, 'AuctionStarted', {
+      expectEvent(result, 'AuctionStarted', {
         nonce: new BN('1'),
         user: borrower
       });
@@ -690,7 +690,7 @@ contract('Unit Test for FantomLiquidationManager', function ([
 
             console.log(`
             *Event AuctionStarted should be emitted with correct values: nonce = 1, user = borrower`);
-            expectEvent.inLogs(result.logs, 'AuctionStarted',{
+            expectEvent(result, 'AuctionStarted',{
                 nonce: new BN('1'),
                 user: borrower
             })

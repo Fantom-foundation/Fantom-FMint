@@ -3,6 +3,7 @@
 build
 node_modules
 artifacts/
+flattened/
 cache/
 *.sublime-project
 *.sublime-workspace
