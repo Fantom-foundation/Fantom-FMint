@@ -28,6 +28,8 @@ const MockPriceOracleProxy = artifacts.require('MockPriceOracleProxy');
 
 let debtValue;
 let offeredRatio;
+let totalSupply;
+let maxMint;
 
 const PRICE_PRECISION = 10 ** 8;
 
@@ -76,6 +78,7 @@ contract('FantomLiquidationManager', function([
     );
 
     this.fantomFUSD = await FantomFUSD.new({ from: owner });
+
     await this.fantomFUSD.initialize(owner);
 
     this.fantomMintRewardDistribution = await FantomMintRewardDistribution.new({
@@ -267,9 +270,12 @@ contract('FantomLiquidationManager', function([
       });
 
       const fUSDBalance = await this.fantomFUSD.balanceOf(borrower);
+      totalSupply = weiToEther(await this.fantomFUSD.totalSupply());
+
       expect(weiToEther(fUSDBalance) * 1).to.be.lessThanOrEqual(3333);
     });
   });
+
   describe('Liquidation phase', function() {
     it('should get the new updated wFTM price ($1 -> $0.5)', async function() {
       // assume: the value of wFTM has changed to 0.5 USD !!
@@ -371,6 +377,14 @@ contract('FantomLiquidationManager', function([
       let remainingCollateral =
         9999 - (offeredRatio * PRICE_PRECISION * 9999) / 1e16;
       expect(weiToEther(balance)).to.equal(remainingCollateral.toString());
+    });
+
+    it('should show the new total supply (after burning tokens)', async function() {
+      let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
+
+      expect(Number(newTotalSupply)).to.equal(
+        totalSupply - weiToEther(debtValue)
+      );
     });
   });
 });
