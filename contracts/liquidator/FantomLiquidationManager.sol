@@ -330,6 +330,8 @@ contract FantomLiquidationManager is
 
     if (_auction.remainingPercentage == percentPrecision) {
       _auction.initiator.call.value(msg.value)('');
+    } else {
+      msg.sender.call.value(msg.value)('');
     }
 
     uint256 actualPercentage = _percentage.mul(percentPrecision).div(
