@@ -32,6 +32,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
     struct AuctionInformation {
         address owner;
+        address payable initiator;
         uint startTime;
         uint intervalTime;
         uint endTime;
@@ -73,6 +74,8 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
     uint internal pricePrecision;
     uint internal percentPrecision;
     uint internal auctionDuration;
+
+    uint256 public initiatorBonus;
 
     bool public live;
 
@@ -151,8 +154,17 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         fantomMintContract = _fantomMintContract;
     }
 
+    function updateInitiatorBonus(uint256 _initatorBonus) external onlyOwner {
+        initiatorBonus = _initatorBonus;
+    }
+
     modifier auth {
         require(admins[msg.sender], "Sender not authorized");
+        _;
+    }
+
+    modifier onlyNotContract() {
+        require(_msgSender() == tx.origin);
         _;
     }
 
@@ -229,13 +241,20 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
         return totalValue;
     }
 
-    function bidAuction(uint _nonce, uint _percentage) public nonReentrant {
+    function bidAuction(uint _nonce, uint _percentage) public payable nonReentrant {
+        require(msg.value >= initiatorBonus, "Insufficient funds to bid.");
+
         require(live, "Liquidation not live");
         require(auctionIndexer[_nonce].remainingPercentage > 0, "Auction not found");
         require(_percentage > 0, "Percent must be greater than 0");
+
         AuctionInformation storage _auction = auctionIndexer[_nonce];
         if (_percentage > _auction.remainingPercentage) {
             _percentage = _auction.remainingPercentage;
+        }
+
+        if (_auction.remainingPercentage == percentPrecision) {
+            _auction.initiator.call.value(msg.value)("");
         }
 
         uint actualPercentage = _percentage.mul(percentPrecision).div(_auction.remainingPercentage);
@@ -277,9 +296,10 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
                 _auction.collateralValue[_auction.collateralList[index]] = 0;
             }
         }
+        
     }
 
-    function startLiquidation(address _targetAddress) external nonReentrant auth {
+    function startLiquidation(address _targetAddress) external nonReentrant onlyNotContract {
         require(live, "Liquidation not live");
         // get the collateral pool
         IFantomDeFiTokenStorage collateralPool = getCollateralPool();
@@ -294,6 +314,7 @@ contract FantomLiquidationManager is Initializable, Ownable, FantomMintErrorCode
 
         AuctionInformation memory _tempAuction;
         _tempAuction.owner = _targetAddress;
+        _tempAuction.initiator = msg.sender;
         _tempAuction.startPrice = auctionBeginPrice;
         _tempAuction.intervalPrice = intervalPriceDiff;
         _tempAuction.minPrice = defaultMinPrice;
