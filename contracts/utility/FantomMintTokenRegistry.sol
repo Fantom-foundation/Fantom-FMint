@@ -28,6 +28,7 @@ contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegi
         bool isActive;       // is this token active in DeFi?
         bool canDeposit;     // is this token available for deposit?
         bool canMint;        // is this token available for minting?
+        bool isTradable;     // is this token tradable?
     }
 
     // tokens is the mapping between the token address and it's detailed information.
@@ -77,6 +78,11 @@ contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegi
         return tokens[_token].canMint;
     }
 
+    // canTrade informs if the specified token is tradable in Fantom DeFi.
+    function canTrade(address _token) public view returns (bool) {
+         return tokens[_token].isTradable;
+    }
+
     // ---------------------------------
     // tokens management
     // ---------------------------------
@@ -89,7 +95,8 @@ contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegi
         uint8 _priceDecimals,
         bool _isActive,
         bool _canDeposit,
-        bool _canMint
+        bool _canMint,
+        bool _isTradable
     ) external onlyOwner {
         // make sure the token does not exist yet
         require(0 == tokens[_token].id, "token already known");
@@ -115,7 +122,8 @@ contract FantomMintTokenRegistry is Initializable, Ownable, IFantomMintTokenRegi
         priceDecimals : _priceDecimals,
         isActive : _isActive,
         canDeposit : _canDeposit,
-        canMint : _canMint
+        canMint : _canMint,
+        isTradable: _isTradable
         });
 
         // inform

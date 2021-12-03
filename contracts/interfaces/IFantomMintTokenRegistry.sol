@@ -17,4 +17,7 @@ interface IFantomMintTokenRegistry {
 
 	// canMint informs if the given token can be minted in the fMint protocol.
     function canMint(address _token) external view returns (bool);
+
+     // canTrade informs if the given token can be traded in the fMint protocol.
+     function canTrade(address _token) external view returns (bool);
 }
