@@ -84,6 +84,7 @@ contract FantomLiquidationManager is
   bool public live;
 
   uint256 constant WAD = 10**18;
+  uint256 constant STABILITY_RATIO = 101;
 
   // initialize initializes the contract properly before the first use.
   function initialize(address owner, address _addressProvider)
@@ -314,7 +315,7 @@ contract FantomLiquidationManager is
     payable
     nonReentrant
   {
-    require(msg.value >= initiatorBonus, 'Insufficient funds to bid.');
+    require(msg.value == initiatorBonus, 'Insufficient funds to bid.');
 
     require(live, 'Liquidation not live');
     require(
@@ -471,7 +472,7 @@ contract FantomLiquidationManager is
       if (tokenBalance > 0) {
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
         _auction.debtList.push(tokenAddress);
-        _auction.debtValue[tokenAddress] = tokenBalance.mul(101).div(100);
+        _auction.debtValue[tokenAddress] = tokenBalance.mul(STABILITY_RATIO).div(100);
       }
     }
 
