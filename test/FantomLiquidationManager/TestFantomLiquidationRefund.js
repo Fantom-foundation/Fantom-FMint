@@ -348,7 +348,7 @@ contract(
         let currentBalance = await this.fantomFUSD.balanceOf(secondBidder);
 
         expect(weiToEther(currentBalance) * 1).to.equal(
-          Number(remainingBalance.toFixed(4))
+          Number(remainingBalance)
         );
       });
 
@@ -372,7 +372,7 @@ contract(
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          Number((totalSupply - weiToEther(debtValue)).toFixed(3))
+          Number((totalSupply - weiToEther(debtValue)))
         );
       });
     });
