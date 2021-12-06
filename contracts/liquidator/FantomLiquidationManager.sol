@@ -10,6 +10,7 @@ import '../interfaces/IFantomMintAddressProvider.sol';
 import '../interfaces/IFantomDeFiTokenStorage.sol';
 import '../modules/FantomMintErrorCodes.sol';
 import '../FantomMint.sol';
+import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
 // FantomLiquidationManager implements the liquidation model
@@ -457,11 +458,13 @@ contract FantomLiquidationManager is
     tokenCount = collateralPool.tokensCount();
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
-      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
-      if (tokenBalance > 0) {
-        collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
-        _auction.collateralList.push(tokenAddress);
-        _auction.collateralValue[tokenAddress] = tokenBalance;
+      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)){
+        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+        if (tokenBalance > 0) {
+          collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
+          _auction.collateralList.push(tokenAddress);
+          _auction.collateralValue[tokenAddress] = tokenBalance;
+        }
       }
     }
 
