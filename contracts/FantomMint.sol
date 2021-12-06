@@ -131,11 +131,11 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         // do we have a request to calculate decreased collateral value?
         if ((0 != _sub) && (address(0x0) != _token)) {
             // return current value with reduced balance on given token
-            return addressProvider.getCollateralPool().totalOfDec(_account, _token, _sub, true);
+            return addressProvider.getCollateralPool().totalOfDec(_account, _token, _sub, false);
         }
 
         // return current collateral value as-is
-        return addressProvider.getCollateralPool().totalOf(_account, true);
+        return addressProvider.getCollateralPool().totalOf(_account, false);
     }
 
     // getMaxToWithdraw returns the max amount of tokens to withdraw with the given ratio.
