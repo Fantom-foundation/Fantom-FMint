@@ -154,7 +154,7 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
 
         // ensure that the resulting debt value isn't a dust amount
         IFantomDeFiTokenStorage debtPool = getDebtPool();
-        uint256 resultingDebtValue = debtPool.totalOfInc(msg.sender, _token, _amount, false);
+        uint256 resultingDebtValue = debtPool.totalOfInc(msg.sender, _token, _amount);
         if (resultingDebtValue < getMinDebtValue()) {
             return ERR_DUST_DEBT;
         }
@@ -271,7 +271,7 @@ contract FantomMintDebt is Initializable, ReentrancyGuard, FantomMintErrorCodes
         }
 
         // ensure that the resulting debt value isn't a dust amount
-        uint256 resultingDebtValue = pool.totalOfDec(msg.sender, _token, _amount, false);
+        uint256 resultingDebtValue = pool.totalOfDec(msg.sender, _token, _amount);
         if (resultingDebtValue != 0 && resultingDebtValue < getMinDebtValue()) {
             return ERR_DUST_DEBT;
         }

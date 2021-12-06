@@ -119,11 +119,11 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         // do we have a request to calculate increased debt value?
         if ((0 != _add) && (address(0x0) != _token)) {
             // return current value with increased balance on given token
-            return addressProvider.getDebtPool().totalOfInc(_account, _token, _add, false);
+            return addressProvider.getDebtPool().totalOfInc(_account, _token, _add);
         }
 
         // return current debt value as-is
-        return addressProvider.getDebtPool().totalOf(_account, false);
+        return addressProvider.getDebtPool().totalOf(_account);
     }
 
     // collateralValueOf returns the value of account collateral.
@@ -131,11 +131,11 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         // do we have a request to calculate decreased collateral value?
         if ((0 != _sub) && (address(0x0) != _token)) {
             // return current value with reduced balance on given token
-            return addressProvider.getCollateralPool().totalOfDec(_account, _token, _sub, false);
+            return addressProvider.getCollateralPool().totalOfDec(_account, _token, _sub);
         }
 
         // return current collateral value as-is
-        return addressProvider.getCollateralPool().totalOf(_account, false);
+        return addressProvider.getCollateralPool().totalOf(_account);
     }
 
     // getMaxToWithdraw returns the max amount of tokens to withdraw with the given ratio.

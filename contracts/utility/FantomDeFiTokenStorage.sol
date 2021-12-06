@@ -109,22 +109,22 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
     }
 
     // totalOf returns the value of current balance of specified account.
-    function totalOf(address _account, bool requireTradable) public view returns (uint256) {
-        return _totalOf(_account, address(0x0), 0, 0, requireTradable);
+    function totalOf(address _account) public view returns (uint256) {
+        return _totalOf(_account, address(0x0), 0, 0);
     }
 
     // totalOfInc returns the value of current balance of an account
     // with specified token balance increased by given amount of tokens.
-    function totalOfInc(address _account, address _token, uint256 _amount, bool requireTradable) external view returns (uint256 value) {
+    function totalOfInc(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
         // calculate the total with token balance adjusted up
-        return _totalOf(_account, _token, _amount, 0,requireTradable);
+        return _totalOf(_account, _token, _amount, 0);
     }
 
     // totalOfDec returns the value of current balance of an account
     // with specified token balance decreased by given amount of tokens.
-    function totalOfDec(address _account, address _token, uint256 _amount, bool requireTradable) external view returns (uint256 value) {
+    function totalOfDec(address _account, address _token, uint256 _amount) external view returns (uint256 value) {
         // calculate the total with token balance adjusted down
-        return _totalOf(_account, _token, 0, _amount, requireTradable);
+        return _totalOf(_account, _token, 0, _amount);
     }
 
     // balanceOf returns the balance of the given token on the given account.
@@ -134,7 +134,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 
     // _totalOf calculates the value of given account with specified token balance adjusted
     // either up, or down, based on given extra values
-    function _totalOf(address _account, address _token, uint256 _add, uint256 _sub, bool requireTradable) internal view returns (uint256 value) {
+    function _totalOf(address _account, address _token, uint256 _add, uint256 _sub) internal view returns (uint256 value) {
         // loop all registered debt tokens
         for (uint i = 0; i < tokens.length; i++) {
             // advance the result by the value of current token balance of this token.
@@ -156,9 +156,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
                 _sub = 0;
             } else {
                 // simply add the token balance converted to value as-is
-                if (!requireTradable || addressProvider.getTokenRegistry().canTrade(tokens[i])){
                     value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
-                }
             }
         }
 
