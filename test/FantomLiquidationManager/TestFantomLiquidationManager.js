@@ -314,11 +314,7 @@ contract(
       });
 
       it('should find collateral not eligible anymore', async function () {
-        // make sure it's live
-        const live = await this.fantomLiquidationManager.live();
-        expect(live).to.be.equal(true);
-
-        // make sure the collateral isn't eligible any more
+       // make sure the collateral isn't eligible any more
         const isEligible =
           await this.fantomLiquidationManager.collateralIsEligible(borrower);
 
@@ -344,7 +340,7 @@ contract(
       });
 
       it('should get correct liquidation details', async function () {
-        let details = await this.fantomLiquidationManager.getLiquidationDetails(
+        let details = await this.fantomLiquidationManager.getAuction(
           new BN('1')
         );
 

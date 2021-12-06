@@ -82,8 +82,6 @@ contract FantomLiquidationManager is
 
   uint256 public initiatorBonus;
 
-  bool public live;
-
   uint256 constant WAD = 10**18;
   uint256 constant STABILITY_RATIO = 101;
 
@@ -100,7 +98,6 @@ contract FantomLiquidationManager is
 
     // initialize default values
     admins[owner] = true;
-    live = true;
     auctionBeginPrice = 20000000;
     intervalPriceDiff = 1000;
     intervalTimeDiff = 1;
@@ -213,7 +210,7 @@ contract FantomLiquidationManager is
         );
   }
 
-  function getLiquidationDetails(uint256 _nonce)
+  function getAuction(uint256 _nonce)
     external
     view
     returns (
@@ -275,7 +272,6 @@ contract FantomLiquidationManager is
   {
     require(msg.value == initiatorBonus, 'Insufficient funds to bid.');
 
-    require(live, 'Liquidation not live');
     require(
       auctionIndexer[_nonce].remainingPercentage > 0,
       'Auction not found'
@@ -374,7 +370,6 @@ contract FantomLiquidationManager is
     nonReentrant
     onlyNotContract
   {
-    require(live, 'Liquidation not live');
     // get the collateral pool
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
     // get the debt pool
@@ -439,10 +434,6 @@ contract FantomLiquidationManager is
     _auction.remainingPercentage = percentPrecision;
 
     emit AuctionStarted(totalNonce, _targetAddress);
-  }
-
-  function updateLiquidationFlag(bool _live) external auth {
-    live = _live;
   }
 
   function _now() internal view returns (uint256) {
