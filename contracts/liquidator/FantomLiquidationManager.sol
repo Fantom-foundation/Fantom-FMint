@@ -268,49 +268,6 @@ contract FantomLiquidationManager is
     );
   }
 
-  function updateLiquidation(uint256 _nonce) public nonReentrant auth {
-    require(live, 'Liquidation not live');
-    require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
-      'Auction not found'
-    );
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
-    uint256 timeDiff = _now().sub(_auction.startTime);
-    uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 _nextPrice = _auction.startPrice.add(
-      currentRound.mul(_auction.intervalPrice)
-    );
-    if (_auction.endTime >= _now() || _nextPrice >= _auction.minPrice) {
-      // Restart the Auction
-      _auction.startPrice = auctionBeginPrice;
-      _auction.intervalPrice = intervalPriceDiff;
-      _auction.minPrice = defaultMinPrice;
-      _auction.startTime = _now();
-      _auction.intervalTime = intervalTimeDiff;
-      _auction.endTime = _now().add(auctionDuration);
-      emit AuctionRestarted(_nonce, _auction.owner);
-    }
-  }
-
-  function balanceOfRemainingDebt(uint256 _nonce)
-    public
-    view
-    returns (uint256)
-  {
-    require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
-      'Auction not found'
-    );
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
-
-    uint256 totalValue = 0;
-    for (uint256 i = 0; i < _auction.debtList.length; i++) {
-      totalValue += _auction.debtValue[_auction.debtList[i]];
-    }
-
-    return totalValue;
-  }
-
   function bidAuction(uint256 _nonce, uint256 _percentage)
     public
     payable
