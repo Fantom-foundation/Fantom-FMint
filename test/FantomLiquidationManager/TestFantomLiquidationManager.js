@@ -154,7 +154,8 @@ contract(
         18,
         true,
         true,
-        false
+        false,
+        true
       );
       await this.fantomMintTokenRegistry.addToken(
         this.mockToken2.address,
@@ -163,7 +164,8 @@ contract(
         18,
         true,
         true,
-        false
+        false,
+        true
       );
       await this.fantomMintTokenRegistry.addToken(
         this.fantomFUSD.address,
@@ -172,7 +174,8 @@ contract(
         18,
         true,
         false,
-        true
+        true,
+        false
       );
 
       await this.fantomFUSD.addMinter(this.fantomMint.address, { from: owner });
@@ -330,7 +333,7 @@ contract(
 
       it('should start liquidation', async function () {
         let _auctionStartEvent =
-          await this.fantomLiquidationManager.startLiquidation(borrower, {
+          await this.fantomLiquidationManager.liquidate(borrower, {
             from: initiator
           });
 
@@ -370,7 +373,7 @@ contract(
           { from: firstBidder }
         );
 
-        await this.fantomLiquidationManager.bidAuction(1, new BN('100000000'), {
+        await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
           from: firstBidder,
           value: etherToWei(0.05)
         });

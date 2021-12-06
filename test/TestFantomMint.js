@@ -367,7 +367,6 @@ contract('FantomMint', function([
 
   describe('Liquidation phase [Price goes down, single bidder bids completely]', function() {
     it('should get the new updated xFTM price ($1 -> $0.5)', async function() {
-      // assume: the value of wFTM has changed to 0.5 USD !!
       await this.mockPriceOracleProxy.setPrice(
         this.mockTokenTwo.address,
         etherToWei(0.5)
@@ -400,7 +399,7 @@ contract('FantomMint', function([
     });
 
     it('should start liquidation', async function() {
-      let _auctionStartEvent = await this.fantomLiquidationManager.startLiquidation(
+      let _auctionStartEvent = await this.fantomLiquidationManager.liquidate(
         borrower,
         {from: initiator
         }
@@ -419,7 +418,7 @@ contract('FantomMint', function([
         { from: firstBidder }
       );
 
-      await this.fantomLiquidationManager.bidAuction(1, new BN('100000000'), {
+      await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
         from: firstBidder,
         value: etherToWei(0.05)
       });

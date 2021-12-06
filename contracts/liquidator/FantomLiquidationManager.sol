@@ -268,7 +268,7 @@ contract FantomLiquidationManager is
     );
   }
 
-  function bidAuction(uint256 _nonce, uint256 _percentage)
+  function bid(uint256 _nonce, uint256 _percentage)
     public
     payable
     nonReentrant
@@ -369,7 +369,7 @@ contract FantomLiquidationManager is
     }
   }
 
-  function startLiquidation(address _targetAddress)
+  function liquidate(address _targetAddress)
     external
     nonReentrant
     onlyNotContract
