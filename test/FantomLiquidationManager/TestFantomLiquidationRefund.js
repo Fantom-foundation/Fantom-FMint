@@ -216,7 +216,7 @@ contract(
           { from: borrower }
         );
 
-        await this.fantomMint.mustMintMax(this.fantomFUSD.address, 32000, {
+        await this.fantomMint.mustMintMax(this.fantomFUSD.address, 30000, {
           from: borrower
         });
 
@@ -264,14 +264,14 @@ contract(
       });
 
       it('should get correct liquidation details', async function () {
-        let details = await this.fantomLiquidationManager.getAuction(
+        let details = await this.fantomLiquidationManager.getAuctionPricing(
           new BN('1')
         );
 
-        const { 0: offeringRatio, 5: debtValueOutstanding } = details;
+        const { 0: offeringRatio } = details;
 
         offeredRatio = offeringRatio;
-        debtValue = debtValueOutstanding;
+        debtValue = 3366329999999999999998 / 1e18;;
 
         expect(offeringRatio.toString()).to.equal('20000000');
       });
@@ -297,7 +297,7 @@ contract(
       });
 
       it('the bidder1 should have (10000 - (3366.33 * 0.25)) -9158.41 fUSD remaining', async function () {
-        let remainingBalance = 10000 - Number(weiToEther(debtValue)) * 0.25;
+        let remainingBalance = 10000 - debtValue * 0.25;
         let currentBalance = await this.fantomFUSD.balanceOf(firstBidder);
 
         expect(Number(weiToEther(currentBalance))).to.equal(remainingBalance);
@@ -343,11 +343,11 @@ contract(
       });
 
       it('the bidder2 should have (10000 - (3366.33 * 0.75)) 7,475.25 fUSD remaining', async function () {
-        let remainingBalance = 10000 - Number(weiToEther(debtValue)) * 0.75;
+        let remainingBalance = 10000 - debtValue * 0.75;
         let currentBalance = await this.fantomFUSD.balanceOf(secondBidder);
 
         expect(weiToEther(currentBalance) * 1).to.equal(
-          Number(remainingBalance)
+          Number(remainingBalance.toFixed(4))
         );
       });
 
@@ -371,7 +371,7 @@ contract(
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          Number((totalSupply - weiToEther(debtValue)))
+          Number((totalSupply - debtValue).toFixed(3))
         );
       });
     });
