@@ -44,8 +44,8 @@ contract FantomLiquidationManager is
     uint256 remainingPercentage;
     address[] collateralList;
     address[] debtList;
-    mapping(address => uint256) collateralValue;
-    mapping(address => uint256) debtValue;
+    uint256[] collateralValue;
+    uint256[] debtValue;
   }
 
   bytes32 private constant MOD_FANTOM_MINT = 'fantom_mint';
@@ -78,7 +78,7 @@ contract FantomLiquidationManager is
 
   uint256 public initiatorBonus;
 
-  uint256 constant WAD = 10**18;
+  uint256 constant PRECISION_RATIO = 10**8;
   uint256 constant STABILITY_RATIO = 101;
 
   // initialize initializes the contract properly before the first use.
@@ -97,9 +97,9 @@ contract FantomLiquidationManager is
     auctionBeginPrice = 20000000;
     intervalPriceDiff = 1000;
     intervalTimeDiff = 1;
-    defaultMinPrice = 10**8;
-    pricePrecision = 10**8;
-    percentPrecision = 10**8;
+    defaultMinPrice = PRECISION_RATIO;
+    pricePrecision = PRECISION_RATIO;
+    percentPrecision = PRECISION_RATIO;
     auctionDuration = 80000;
     totalNonce = 0;
   }
@@ -206,16 +206,15 @@ contract FantomLiquidationManager is
         );
   }
 
-  function getAuction(uint256 _nonce)
+    function getAuctionPricing(uint256 _nonce)
     external
     view
     returns (
       uint256,
       uint256,
+      uint256,
       address[] memory,
-      uint256[] memory,
-      address[] memory,
-      uint256[] memory
+      address[] memory
     )
   {
     require(
@@ -228,34 +227,13 @@ contract FantomLiquidationManager is
     uint256 offeringRatio = auctionBeginPrice.add(
       currentRound.mul(_auction.intervalPrice)
     );
-
-    address[] memory collateralList = new address[](
-      _auction.collateralList.length
-    );
-    uint256[] memory collateralValue = new uint256[](
-      _auction.collateralList.length
-    );
-    address[] memory debtList = new address[](_auction.debtList.length);
-    uint256[] memory debtValue = new uint256[](_auction.debtList.length);
-    uint256 index;
-    for (index = 0; index < _auction.collateralList.length; index++) {
-      collateralList[index] = _auction.collateralList[index];
-      collateralValue[index] = _auction
-        .collateralValue[_auction.collateralList[index]]
-        .mul(offeringRatio)
-        .div(pricePrecision);
-    }
-    for (index = 0; index < _auction.debtList.length; index++) {
-      debtList[index] = _auction.debtList[index];
-      debtValue[index] = _auction.debtValue[_auction.debtList[index]];
-    }
+    
     return (
       offeringRatio,
-      _auction.startTime,
-      collateralList,
-      collateralValue,
-      debtList,
-      debtValue
+      initiatorBonus,
+      auctionIndexer[_nonce].remainingPercentage,
+      _auction.collateralList,
+      _auction.debtList
     );
   }
 
@@ -294,9 +272,10 @@ contract FantomLiquidationManager is
     );
 
     uint256 index;
+
     for (index = 0; index < _auction.debtList.length; index++) {
       uint256 debtAmount = _auction
-        .debtValue[_auction.debtList[index]]
+        .debtValue[index]
         .mul(actualPercentage)
         .div(percentPrecision);
       require(
@@ -306,8 +285,8 @@ contract FantomLiquidationManager is
       );
 
       ERC20Burnable(_auction.debtList[index]).burnFrom(msg.sender, debtAmount);
-      _auction.debtValue[_auction.debtList[index]] = _auction
-        .debtValue[_auction.debtList[index]]
+      _auction.debtValue[index] = _auction
+        .debtValue[index]
         .sub(debtAmount);
     }
 
@@ -317,11 +296,11 @@ contract FantomLiquidationManager is
 
     for (index = 0; index < _auction.collateralList.length; index++) {
       uint256 collatAmount = _auction
-        .collateralValue[_auction.collateralList[index]]
+        .collateralValue[index]
         .mul(collateralPercent)
         .div(percentPrecision);
       uint256 processedCollatAmount = _auction
-        .collateralValue[_auction.collateralList[index]]
+        .collateralValue[index]
         .mul(actualPercentage)
         .div(percentPrecision);
       FantomMint(fantomMintContract).settleLiquidationBid(
@@ -334,8 +313,8 @@ contract FantomLiquidationManager is
         _auction.owner,
         processedCollatAmount.sub(collatAmount)
       );
-      _auction.collateralValue[_auction.collateralList[index]] = _auction
-        .collateralValue[_auction.collateralList[index]]
+      _auction.collateralValue[index] = _auction
+        .collateralValue[index]
         .sub(processedCollatAmount);
     }
 
@@ -346,15 +325,13 @@ contract FantomLiquidationManager is
     if (actualPercentage == percentPrecision) {
       // Auction ended
       for (index = 0; index < _auction.collateralList.length; index++) {
-        uint256 collatAmount = _auction.collateralValue[
-          _auction.collateralList[index]
-        ];
+        uint256 collatAmount = _auction.collateralValue[index];
         FantomMint(fantomMintContract).settleLiquidationBid(
           _auction.collateralList[index],
           _auction.owner,
           collatAmount
         );
-        _auction.collateralValue[_auction.collateralList[index]] = 0;
+        _auction.collateralValue[index] = 0;
       }
     }
   }
@@ -398,6 +375,7 @@ contract FantomLiquidationManager is
     address tokenAddress;
     uint256 tokenBalance;
     tokenCount = collateralPool.tokensCount();
+
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
       if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)){
@@ -405,19 +383,20 @@ contract FantomLiquidationManager is
         if (tokenBalance > 0) {
           collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
           _auction.collateralList.push(tokenAddress);
-          _auction.collateralValue[tokenAddress] = tokenBalance;
+          _auction.collateralValue.push(tokenBalance);
         }
       }
     }
 
     tokenCount = debtPool.tokensCount();
+    
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = debtPool.getToken(index);
       tokenBalance = debtPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
         _auction.debtList.push(tokenAddress);
-        _auction.debtValue[tokenAddress] = tokenBalance.mul(STABILITY_RATIO).div(100);
+        _auction.debtValue.push(tokenBalance.mul(STABILITY_RATIO).div(100));
       }
     }
 
