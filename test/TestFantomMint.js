@@ -444,9 +444,9 @@ contract('FantomMint', function([
       expect(weiToEther(balanceThree)).to.equal('0');
     })
 
-    it('the borrower should get the remaining 80% of the wFTM/xFTM collateral back', async function() {
-      let balanceOne = await this.mockTokenOne.balanceOf(borrower);
-      let balanceTwo = await this.mockTokenTwo.balanceOf(borrower);
+    it('the collateral pool should get the remaining 80% of the wFTM collateral back', async function() {
+      let balanceOne = await this.collateralPool.balanceOf(borrower, this.mockTokenOne.address);
+      let balanceTwo = await this.collateralPool.balanceOf(borrower, this.mockTokenTwo.address);
 
       expect(weiToEther(balanceOne)).to.equal('6000');
       expect(weiToEther(balanceTwo)).to.equal('6000');
