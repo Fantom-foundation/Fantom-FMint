@@ -395,8 +395,8 @@ contract(
         expect(weiToEther(balance)).to.equal(offeredCollateral.toString());
       });
 
-      it('the borrower should get the remaining 80% of the wFTM collateral back', async function () {
-        let balance = await this.mockToken.balanceOf(borrower);
+      it('the collateral pool should get the remaining 80% of the wFTM collateral back', async function () {
+        let balance = await this.collateralPool.balanceOf(borrower, this.mockToken.address);
 
         let remainingCollateral =
           9999 - (offeredRatio * PRICE_PRECISION * 9999) / 1e16;

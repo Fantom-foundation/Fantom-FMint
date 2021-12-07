@@ -248,6 +248,7 @@ contract FantomLiquidationManager is
       auctionIndexer[_nonce].remainingPercentage > 0,
       'Auction not found'
     );
+
     require(_percentage > 0, 'Percent must be greater than 0');
 
     AuctionInformation storage _auction = auctionIndexer[_nonce];
@@ -272,6 +273,8 @@ contract FantomLiquidationManager is
     );
 
     uint256 index;
+
+    IFantomDeFiTokenStorage collateralPool = getCollateralPool();
 
     for (index = 0; index < _auction.debtList.length; index++) {
       uint256 debtAmount = _auction
@@ -299,20 +302,20 @@ contract FantomLiquidationManager is
         .collateralValue[index]
         .mul(collateralPercent)
         .div(percentPrecision);
+      
       uint256 processedCollatAmount = _auction
         .collateralValue[index]
         .mul(actualPercentage)
         .div(percentPrecision);
+
       FantomMint(fantomMintContract).settleLiquidationBid(
         _auction.collateralList[index],
         msg.sender,
         collatAmount
       );
-      FantomMint(fantomMintContract).settleLiquidationBid(
-        _auction.collateralList[index],
-        _auction.owner,
-        processedCollatAmount.sub(collatAmount)
-      );
+
+      collateralPool.add(_auction.owner, _auction.collateralList[index], processedCollatAmount.sub(collatAmount));
+
       _auction.collateralValue[index] = _auction
         .collateralValue[index]
         .sub(processedCollatAmount);
@@ -326,11 +329,7 @@ contract FantomLiquidationManager is
       // Auction ended
       for (index = 0; index < _auction.collateralList.length; index++) {
         uint256 collatAmount = _auction.collateralValue[index];
-        FantomMint(fantomMintContract).settleLiquidationBid(
-          _auction.collateralList[index],
-          _auction.owner,
-          collatAmount
-        );
+        collateralPool.add(_auction.owner, _auction.collateralList[index], collatAmount);
         _auction.collateralValue[index] = 0;
       }
     }
@@ -374,6 +373,7 @@ contract FantomLiquidationManager is
     uint256 tokenCount;
     address tokenAddress;
     uint256 tokenBalance;
+    
     tokenCount = collateralPool.tokensCount();
 
     for (index = 0; index < tokenCount; index++) {
