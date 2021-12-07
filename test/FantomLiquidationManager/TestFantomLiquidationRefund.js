@@ -268,7 +268,7 @@ contract(
           new BN('1')
         );
 
-        const { 0: offeringRatio, 6: debtValueOutstanding } = details;
+        const { 0: offeringRatio, 5: debtValueOutstanding } = details;
 
         offeredRatio = offeringRatio;
         debtValue = debtValueOutstanding;

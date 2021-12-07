@@ -40,16 +40,12 @@ contract FantomLiquidationManager is
     address payable initiator;
     uint256 startTime;
     uint256 intervalTime;
-    uint256 endTime;
-    uint256 startPrice;
     uint256 intervalPrice;
-    uint256 minPrice;
     uint256 remainingPercentage;
     address[] collateralList;
     address[] debtList;
     mapping(address => uint256) collateralValue;
     mapping(address => uint256) debtValue;
-    uint256 nonce;
   }
 
   bytes32 private constant MOD_FANTOM_MINT = 'fantom_mint';
@@ -216,7 +212,6 @@ contract FantomLiquidationManager is
     returns (
       uint256,
       uint256,
-      uint256,
       address[] memory,
       uint256[] memory,
       address[] memory,
@@ -230,7 +225,7 @@ contract FantomLiquidationManager is
     AuctionInformation storage _auction = auctionIndexer[_nonce];
     uint256 timeDiff = _now().sub(_auction.startTime);
     uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = _auction.startPrice.add(
+    uint256 offeringRatio = auctionBeginPrice.add(
       currentRound.mul(_auction.intervalPrice)
     );
 
@@ -257,7 +252,6 @@ contract FantomLiquidationManager is
     return (
       offeringRatio,
       _auction.startTime,
-      _auction.endTime,
       collateralList,
       collateralValue,
       debtList,
@@ -295,7 +289,7 @@ contract FantomLiquidationManager is
 
     uint256 timeDiff = _now().sub(_auction.startTime);
     uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = _auction.startPrice.add(
+    uint256 offeringRatio = auctionBeginPrice.add(
       currentRound.mul(_auction.intervalPrice)
     );
 
@@ -390,18 +384,14 @@ contract FantomLiquidationManager is
     AuctionInformation memory _tempAuction;
     _tempAuction.owner = _targetAddress;
     _tempAuction.initiator = msg.sender;
-    _tempAuction.startPrice = auctionBeginPrice;
     _tempAuction.intervalPrice = intervalPriceDiff;
-    _tempAuction.minPrice = defaultMinPrice;
     _tempAuction.startTime = _now();
     _tempAuction.intervalTime = intervalTimeDiff;
-    _tempAuction.endTime = _now() + auctionDuration;
 
     totalNonce += 1;
     auctionIndexer[totalNonce] = _tempAuction;
 
     AuctionInformation storage _auction = auctionIndexer[totalNonce];
-    _auction.nonce = totalNonce;
 
     uint256 index;
     uint256 tokenCount;
