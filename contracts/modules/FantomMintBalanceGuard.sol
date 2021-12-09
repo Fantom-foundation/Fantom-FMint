@@ -89,6 +89,16 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         return max;
     }
 
+    function _calcMinCollateralValue(uint256 cDebtValue, uint256 _ratio) internal pure returns (uint256) {
+        uint256 minCollateralValue = cDebtValue
+        .mul(_ratio)
+        .div(collateralRatioDecimalsCorrection);
+        if (_ratio % collateralRatioDecimalsCorrection != 0) {
+            minCollateralValue = minCollateralValue.add(1);
+        }
+        return minCollateralValue;
+    }
+
     // _maxToWithdraw calculates the max amount of the given token the account can withdraw
     // safely and still obey given debt to collateral ratio.
     function _maxToWithdraw(address _account, address _token, uint256 _ratio) internal view returns (uint256) {
@@ -101,12 +111,10 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
 
         // what is the minimal collateral value required?
-        uint256 minCollateralValue = cDebtValue
-        .mul(_ratio)
-        .div(collateralRatioDecimalsCorrection);
+        uint256 minCollateralValue = _calcMinCollateralValue(cDebtValue, _ratio);
 
         // check if we are safely over the required collateral ratio
-        if (cCollateralValue < minCollateralValue) {
+        if (cCollateralValue <= minCollateralValue) {
             return 0;
         }
 
@@ -128,13 +136,11 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
 
         // what's the largest possible debt value allowed?
         // what is the minimal collateral value required?
-        uint256 minCollateralValue = cDebtValue
-        .mul(_ratio)
-        .div(collateralRatioDecimalsCorrection);
+        uint256 minCollateralValue = _calcMinCollateralValue(cDebtValue, _ratio);
 
         // check if we are safely over the required collateral ratio
         // if so, there is no need to add anything to get over
-        if (minCollateralValue < cCollateralValue) {
+        if (minCollateralValue <= cCollateralValue) {
             return 0;
         }
 
@@ -155,21 +161,25 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
         uint256 cCollateralValue = collateralValueOf(_account, address(0x0), 0);
 
         // what is the minimal collateral value required?
-        uint256 minCollateralValue = cDebtValue
-        .mul(_ratio)
-        .div(collateralRatioDecimalsCorrection);
+        uint256 minCollateralValue = _calcMinCollateralValue(cDebtValue, _ratio);
 
         // if the account is under-collateralized already,
         // no tokens can be added
-        if (cCollateralValue < minCollateralValue) {
+        if (cCollateralValue <= minCollateralValue) {
+            return 0;
+        }
+
+        // what's the largest possible debt value allowed?
+        uint256 maxDebtValue = cCollateralValue
+        .sub(minCollateralValue)
+        .mul(collateralRatioDecimalsCorrection)
+        .div(_ratio);
+        if (maxDebtValue == 0) {
             return 0;
         }
 
         // what's the largest possible debt amount allowed?
-        return cCollateralValue
-        .sub(minCollateralValue)
-        .mul(collateralRatioDecimalsCorrection)
-        .div(getCollateralLowestDebtRatio4dec()).sub(1)
+        return maxDebtValue.sub(1)
         .mul(_digits)
         .div(_price);
     }
@@ -195,9 +205,7 @@ contract FantomMintBalanceGuard is FantomMintErrorCodes, IFantomMintBalanceGuard
 
         // minCollateralValue is the minimal collateral value required for the current debt
         // to be within the minimal allowed collateral to debt ratio
-        uint256 minCollateralValue = cDebtValue
-        .mul(_ratio)
-        .div(collateralRatioDecimalsCorrection);
+        uint256 minCollateralValue = _calcMinCollateralValue(cDebtValue, _ratio);
 
         // final collateral value must match the minimal value or exceed it
         return (cCollateralValue >= minCollateralValue);

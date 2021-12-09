@@ -141,12 +141,14 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
             // Make sure to stay on safe size with the _sub deduction, we don't
             // want to drop balance to sub-zero amount, that would freak out the SafeMath.
             if (_token == tokens[i]) {
+                uint256 adjustedBalance = balance[_account][tokens[i]].add(_add).sub(_sub, "token sub exceeds balance");
+
                 // add adjusted token balance converted to value
                 // NOTE: this may revert on underflow if the _sub value exceeds balance,
                 // but it should never happen on normal protocol operations.
                 value = value.add(tokenValue(
                         tokens[i],
-                        balance[_account][tokens[i]].add(_add).sub(_sub, "token sub exceeds balance")
+                        adjustedBalance
                     ));
 
                 // we consumed the adjustment and can reset it
@@ -154,7 +156,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
                 _sub = 0;
             } else {
                 // simply add the token balance converted to value as-is
-                value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
+                    value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
             }
         }
 

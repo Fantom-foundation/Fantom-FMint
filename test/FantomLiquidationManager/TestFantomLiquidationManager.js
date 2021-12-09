@@ -154,7 +154,8 @@ contract(
         18,
         true,
         true,
-        false
+        false,
+        true
       );
       await this.fantomMintTokenRegistry.addToken(
         this.mockToken2.address,
@@ -163,7 +164,8 @@ contract(
         18,
         true,
         true,
-        false
+        false,
+        true
       );
       await this.fantomMintTokenRegistry.addToken(
         this.fantomFUSD.address,
@@ -172,7 +174,8 @@ contract(
         18,
         true,
         false,
-        true
+        true,
+        false
       );
 
       await this.fantomFUSD.addMinter(this.fantomMint.address, { from: owner });
@@ -276,7 +279,7 @@ contract(
         //   weiToEther(collateralOfAccount)
         // );
 
-        // maxToMint Calculation ((((9999 - ((0 * 32000) / 10000)) / 30000) - 1) * 10**18) / 10**18
+        // maxToMint Calculation ((((9999 - ((0 * 30000) / 10000)) / 30000) - 1) * 10**18) / 10**18
 
         expect(maxToMint).to.be.bignumber.greaterThan('0');
         expect(weiToEther(maxToMint) * 1).to.be.lessThanOrEqual(3333);
@@ -284,7 +287,7 @@ contract(
 
       it('should mint maximium (3333) amount of fUSD', async function () {
         // mint maximum amount possible of fUSD for borrower
-        await this.fantomMint.mustMintMax(this.fantomFUSD.address, 32000, {
+        await this.fantomMint.mustMintMax(this.fantomFUSD.address, 30000, {
           from: borrower
         });
 
@@ -311,11 +314,7 @@ contract(
       });
 
       it('should find collateral not eligible anymore', async function () {
-        // make sure it's live
-        const live = await this.fantomLiquidationManager.live();
-        expect(live).to.be.equal(true);
-
-        // make sure the collateral isn't eligible any more
+       // make sure the collateral isn't eligible any more
         const isEligible =
           await this.fantomLiquidationManager.collateralIsEligible(borrower);
 
@@ -330,7 +329,7 @@ contract(
 
       it('should start liquidation', async function () {
         let _auctionStartEvent =
-          await this.fantomLiquidationManager.startLiquidation(borrower, {
+          await this.fantomLiquidationManager.liquidate(borrower, {
             from: initiator
           });
 
@@ -338,17 +337,18 @@ contract(
           0: new BN('1'),
           1: borrower
         });
+
       });
 
       it('should get correct liquidation details', async function () {
-        let details = await this.fantomLiquidationManager.getLiquidationDetails(
+        let details = await this.fantomLiquidationManager.getAuctionPricing(
           new BN('1')
         );
 
-        const { 0: offeringRatio, 6: debtValueOutstanding } = details;
+        const { 0: offeringRatio } = details;
 
         offeredRatio = offeringRatio;
-        debtValue = debtValueOutstanding;
+        debtValue = 3366329999999999999998 / 1e18;
 
         expect(offeringRatio.toString()).to.equal('20000000');
 
@@ -370,22 +370,19 @@ contract(
           { from: firstBidder }
         );
 
-        await this.fantomLiquidationManager.bidAuction(1, new BN('100000000'), {
+        await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
           from: firstBidder,
           value: etherToWei(0.05)
         });
       });
 
       it('the initiator should get initiatorBonus', async function () {
-        let balance = await provider.getBalance(initiator); // 0
+        let balance = await provider.getBalance(initiator); 
         expect(Number(weiToEther(balance))).to.be.greaterThanOrEqual(10000);
-
-        // let balanceX = await provider.getBalance(firstBidder); // 0
-        // console.log('Balance After [bidder]: ', weiToEther(balanceX));
       });
 
       it('the bidder should have (10000 - 3366.33) 6633.67 fUSD remaining', async function () {
-        let remainingBalance = 10000 - weiToEther(debtValue);
+        let remainingBalance = 10000 - debtValue;
         let currentBalance = await this.fantomFUSD.balanceOf(firstBidder);
 
         expect(weiToEther(currentBalance) * 1).to.equal(remainingBalance);
@@ -398,8 +395,8 @@ contract(
         expect(weiToEther(balance)).to.equal(offeredCollateral.toString());
       });
 
-      it('the borrower should get the remaining 80% of the wFTM collateral back', async function () {
-        let balance = await this.mockToken.balanceOf(borrower);
+      it('the collateral pool should get the remaining 80% of the wFTM collateral back', async function () {
+        let balance = await this.collateralPool.balanceOf(borrower, this.mockToken.address);
 
         let remainingCollateral =
           9999 - (offeredRatio * PRICE_PRECISION * 9999) / 1e16;
@@ -410,7 +407,7 @@ contract(
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          totalSupply - weiToEther(debtValue)
+          totalSupply - debtValue
         );
       });
     });

@@ -10,6 +10,7 @@ import '../interfaces/IFantomMintAddressProvider.sol';
 import '../interfaces/IFantomDeFiTokenStorage.sol';
 import '../modules/FantomMintErrorCodes.sol';
 import '../FantomMint.sol';
+import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
 // FantomLiquidationManager implements the liquidation model
@@ -39,16 +40,12 @@ contract FantomLiquidationManager is
     address payable initiator;
     uint256 startTime;
     uint256 intervalTime;
-    uint256 endTime;
-    uint256 startPrice;
     uint256 intervalPrice;
-    uint256 minPrice;
     uint256 remainingPercentage;
     address[] collateralList;
     address[] debtList;
-    mapping(address => uint256) collateralValue;
-    mapping(address => uint256) debtValue;
-    uint256 nonce;
+    uint256[] collateralValue;
+    uint256[] debtValue;
   }
 
   bytes32 private constant MOD_FANTOM_MINT = 'fantom_mint';
@@ -81,9 +78,8 @@ contract FantomLiquidationManager is
 
   uint256 public initiatorBonus;
 
-  bool public live;
-
-  uint256 constant WAD = 10**18;
+  uint256 constant PRECISION_RATIO = 10**8;
+  uint256 constant STABILITY_RATIO = 101;
 
   // initialize initializes the contract properly before the first use.
   function initialize(address owner, address _addressProvider)
@@ -98,13 +94,12 @@ contract FantomLiquidationManager is
 
     // initialize default values
     admins[owner] = true;
-    live = true;
     auctionBeginPrice = 20000000;
     intervalPriceDiff = 1000;
     intervalTimeDiff = 1;
-    defaultMinPrice = 10**8;
-    pricePrecision = 10**8;
-    percentPrecision = 10**8;
+    defaultMinPrice = PRECISION_RATIO;
+    pricePrecision = PRECISION_RATIO;
+    percentPrecision = PRECISION_RATIO;
     auctionDuration = 80000;
     totalNonce = 0;
   }
@@ -211,7 +206,7 @@ contract FantomLiquidationManager is
         );
   }
 
-  function getLiquidationDetails(uint256 _nonce)
+    function getAuctionPricing(uint256 _nonce)
     external
     view
     returns (
@@ -219,9 +214,7 @@ contract FantomLiquidationManager is
       uint256,
       uint256,
       address[] memory,
-      uint256[] memory,
-      address[] memory,
-      uint256[] memory
+      address[] memory
     )
   {
     require(
@@ -231,96 +224,31 @@ contract FantomLiquidationManager is
     AuctionInformation storage _auction = auctionIndexer[_nonce];
     uint256 timeDiff = _now().sub(_auction.startTime);
     uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = _auction.startPrice.add(
+    uint256 offeringRatio = auctionBeginPrice.add(
       currentRound.mul(_auction.intervalPrice)
     );
-
-    address[] memory collateralList = new address[](
-      _auction.collateralList.length
-    );
-    uint256[] memory collateralValue = new uint256[](
-      _auction.collateralList.length
-    );
-    address[] memory debtList = new address[](_auction.debtList.length);
-    uint256[] memory debtValue = new uint256[](_auction.debtList.length);
-    uint256 index;
-    for (index = 0; index < _auction.collateralList.length; index++) {
-      collateralList[index] = _auction.collateralList[index];
-      collateralValue[index] = _auction
-        .collateralValue[_auction.collateralList[index]]
-        .mul(offeringRatio)
-        .div(pricePrecision);
-    }
-    for (index = 0; index < _auction.debtList.length; index++) {
-      debtList[index] = _auction.debtList[index];
-      debtValue[index] = _auction.debtValue[_auction.debtList[index]];
-    }
+    
     return (
       offeringRatio,
-      _auction.startTime,
-      _auction.endTime,
-      collateralList,
-      collateralValue,
-      debtList,
-      debtValue
+      initiatorBonus,
+      auctionIndexer[_nonce].remainingPercentage,
+      _auction.collateralList,
+      _auction.debtList
     );
   }
 
-  function updateLiquidation(uint256 _nonce) public nonReentrant auth {
-    require(live, 'Liquidation not live');
-    require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
-      'Auction not found'
-    );
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
-    uint256 timeDiff = _now().sub(_auction.startTime);
-    uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 _nextPrice = _auction.startPrice.add(
-      currentRound.mul(_auction.intervalPrice)
-    );
-    if (_auction.endTime >= _now() || _nextPrice >= _auction.minPrice) {
-      // Restart the Auction
-      _auction.startPrice = auctionBeginPrice;
-      _auction.intervalPrice = intervalPriceDiff;
-      _auction.minPrice = defaultMinPrice;
-      _auction.startTime = _now();
-      _auction.intervalTime = intervalTimeDiff;
-      _auction.endTime = _now().add(auctionDuration);
-      emit AuctionRestarted(_nonce, _auction.owner);
-    }
-  }
-
-  function balanceOfRemainingDebt(uint256 _nonce)
-    public
-    view
-    returns (uint256)
-  {
-    require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
-      'Auction not found'
-    );
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
-
-    uint256 totalValue = 0;
-    for (uint256 i = 0; i < _auction.debtList.length; i++) {
-      totalValue += _auction.debtValue[_auction.debtList[i]];
-    }
-
-    return totalValue;
-  }
-
-  function bidAuction(uint256 _nonce, uint256 _percentage)
+  function bid(uint256 _nonce, uint256 _percentage)
     public
     payable
     nonReentrant
   {
-    require(msg.value >= initiatorBonus, 'Insufficient funds to bid.');
+    require(msg.value == initiatorBonus, 'Insufficient funds to bid.');
 
-    require(live, 'Liquidation not live');
     require(
       auctionIndexer[_nonce].remainingPercentage > 0,
       'Auction not found'
     );
+
     require(_percentage > 0, 'Percent must be greater than 0');
 
     AuctionInformation storage _auction = auctionIndexer[_nonce];
@@ -340,14 +268,17 @@ contract FantomLiquidationManager is
 
     uint256 timeDiff = _now().sub(_auction.startTime);
     uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = _auction.startPrice.add(
+    uint256 offeringRatio = auctionBeginPrice.add(
       currentRound.mul(_auction.intervalPrice)
     );
 
     uint256 index;
+
+    IFantomDeFiTokenStorage collateralPool = getCollateralPool();
+
     for (index = 0; index < _auction.debtList.length; index++) {
       uint256 debtAmount = _auction
-        .debtValue[_auction.debtList[index]]
+        .debtValue[index]
         .mul(actualPercentage)
         .div(percentPrecision);
       require(
@@ -357,8 +288,8 @@ contract FantomLiquidationManager is
       );
 
       ERC20Burnable(_auction.debtList[index]).burnFrom(msg.sender, debtAmount);
-      _auction.debtValue[_auction.debtList[index]] = _auction
-        .debtValue[_auction.debtList[index]]
+      _auction.debtValue[index] = _auction
+        .debtValue[index]
         .sub(debtAmount);
     }
 
@@ -368,25 +299,25 @@ contract FantomLiquidationManager is
 
     for (index = 0; index < _auction.collateralList.length; index++) {
       uint256 collatAmount = _auction
-        .collateralValue[_auction.collateralList[index]]
+        .collateralValue[index]
         .mul(collateralPercent)
         .div(percentPrecision);
+      
       uint256 processedCollatAmount = _auction
-        .collateralValue[_auction.collateralList[index]]
+        .collateralValue[index]
         .mul(actualPercentage)
         .div(percentPrecision);
+
       FantomMint(fantomMintContract).settleLiquidationBid(
         _auction.collateralList[index],
         msg.sender,
         collatAmount
       );
-      FantomMint(fantomMintContract).settleLiquidationBid(
-        _auction.collateralList[index],
-        _auction.owner,
-        processedCollatAmount.sub(collatAmount)
-      );
-      _auction.collateralValue[_auction.collateralList[index]] = _auction
-        .collateralValue[_auction.collateralList[index]]
+
+      collateralPool.add(_auction.owner, _auction.collateralList[index], processedCollatAmount.sub(collatAmount));
+
+      _auction.collateralValue[index] = _auction
+        .collateralValue[index]
         .sub(processedCollatAmount);
     }
 
@@ -397,25 +328,18 @@ contract FantomLiquidationManager is
     if (actualPercentage == percentPrecision) {
       // Auction ended
       for (index = 0; index < _auction.collateralList.length; index++) {
-        uint256 collatAmount = _auction.collateralValue[
-          _auction.collateralList[index]
-        ];
-        FantomMint(fantomMintContract).settleLiquidationBid(
-          _auction.collateralList[index],
-          _auction.owner,
-          collatAmount
-        );
-        _auction.collateralValue[_auction.collateralList[index]] = 0;
+        uint256 collatAmount = _auction.collateralValue[index];
+        collateralPool.add(_auction.owner, _auction.collateralList[index], collatAmount);
+        _auction.collateralValue[index] = 0;
       }
     }
   }
 
-  function startLiquidation(address _targetAddress)
+  function liquidate(address _targetAddress)
     external
     nonReentrant
     onlyNotContract
   {
-    require(live, 'Liquidation not live');
     // get the collateral pool
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
     // get the debt pool
@@ -436,52 +360,49 @@ contract FantomLiquidationManager is
     AuctionInformation memory _tempAuction;
     _tempAuction.owner = _targetAddress;
     _tempAuction.initiator = msg.sender;
-    _tempAuction.startPrice = auctionBeginPrice;
     _tempAuction.intervalPrice = intervalPriceDiff;
-    _tempAuction.minPrice = defaultMinPrice;
     _tempAuction.startTime = _now();
     _tempAuction.intervalTime = intervalTimeDiff;
-    _tempAuction.endTime = _now() + auctionDuration;
 
     totalNonce += 1;
     auctionIndexer[totalNonce] = _tempAuction;
 
     AuctionInformation storage _auction = auctionIndexer[totalNonce];
-    _auction.nonce = totalNonce;
 
     uint256 index;
     uint256 tokenCount;
     address tokenAddress;
     uint256 tokenBalance;
+    
     tokenCount = collateralPool.tokensCount();
+
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
-      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
-      if (tokenBalance > 0) {
-        collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
-        _auction.collateralList.push(tokenAddress);
-        _auction.collateralValue[tokenAddress] = tokenBalance;
+      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)){
+        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+        if (tokenBalance > 0) {
+          collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
+          _auction.collateralList.push(tokenAddress);
+          _auction.collateralValue.push(tokenBalance);
+        }
       }
     }
 
     tokenCount = debtPool.tokensCount();
+    
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = debtPool.getToken(index);
       tokenBalance = debtPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
         _auction.debtList.push(tokenAddress);
-        _auction.debtValue[tokenAddress] = tokenBalance.mul(101).div(100);
+        _auction.debtValue.push(tokenBalance.mul(STABILITY_RATIO).div(100));
       }
     }
 
     _auction.remainingPercentage = percentPrecision;
 
     emit AuctionStarted(totalNonce, _targetAddress);
-  }
-
-  function updateLiquidationFlag(bool _live) external auth {
-    live = _live;
   }
 
   function _now() internal view returns (uint256) {
