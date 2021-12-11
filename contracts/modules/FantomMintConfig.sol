@@ -24,6 +24,9 @@ contract FantomMintConfig is Initializable, Ownable
     // The value is kept in 4 decimals; 50 = 0.005 = 0.5%
     uint256 public fMintFee4dec;
 
+    // minDebtValue is a minimum allowed debt value
+    uint256 public minDebtValue;
+
     // initialize initializes the contract properly before the first use.
     function initialize(address owner) public initializer {
         // initialize the Ownable
@@ -33,6 +36,7 @@ contract FantomMintConfig is Initializable, Ownable
         collateralLowestDebtRatio4dec = 30000;
         rewardEligibilityRatio4dec = 50000;
         fMintFee4dec = 50;
+        minDebtValue = 1e18;
     }
 
     // -------------------------------------------------------------
@@ -51,6 +55,10 @@ contract FantomMintConfig is Initializable, Ownable
     // MintFeeChanged is emitted on change of the fMint minting
     // fee percentage.
     event MintFeeChanged(uint256 fee4dec);
+
+    // MinDebtValueChanged is emitted on change of the minimum
+    // debt value.
+    event MinDebtValueChanged(uint256 value);
 
     // -------------------------------------------------------------
     // Update functions
@@ -84,5 +92,15 @@ contract FantomMintConfig is Initializable, Ownable
 
         // emit event
         emit MintFeeChanged(_fee4dec);
+    }
+
+    // cfgSetRewardEligibilityRatio changes the lowest ratio between collateral
+    // and debt value users must have to earn rewards.
+    function cfgSetMinDebtValue(uint256 _minDebtValue) public onlyOwner {
+        // update the value
+        minDebtValue = _minDebtValue;
+
+        // emit event
+        emit MinDebtValueChanged(_minDebtValue);
     }
 }

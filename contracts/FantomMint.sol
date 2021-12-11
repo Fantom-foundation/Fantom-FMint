@@ -72,6 +72,11 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         return fMintFee4dec;
     }
 
+    // getMinDebtValue returns the minimum debt value.
+    function getMinDebtValue() public view returns (uint256) {
+        return minDebtValue;
+    }
+
     // -------------------------------------------------------------
     // Pool balances and values
     // -------------------------------------------------------------
@@ -209,5 +214,15 @@ contract FantomMint is Initializable, FantomMintBalanceGuard, FantomMintCollater
         _digits = 10 ** uint256(addressProvider.getTokenRegistry().priceDecimals(_token));
 
         return (_price, _digits);
+    }
+
+    modifier onlyLiquidationManager() {
+        require(msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted"); 
+        _;       
+    }
+    
+   
+    function settleLiquidationBid(address _token, address _destination, uint256 _amount) public onlyLiquidationManager {
+        ERC20(_token).transfer(_destination, _amount);
     }
 }

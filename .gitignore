@@ -2,5 +2,11 @@
 .DS_Store
 build
 node_modules
+artifacts/
+flattened/
+cache/
 *.sublime-project
 *.sublime-workspace
+.env
+.secret
+yarn.lock

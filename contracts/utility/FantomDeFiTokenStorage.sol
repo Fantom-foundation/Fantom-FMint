@@ -39,6 +39,13 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
         _;
     }
 
+    // onlyMinterOrLiquidationManager modifier controls access to sensitive functions
+    // to allow only calls from fMint Minter or fLiquidationManager contract.
+    modifier onlyMinterOrLiquidationManager() {
+        require(msg.sender == address(addressProvider.getFantomMint()) || msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted"); 
+        _;       
+    }
+
     // initialize initializes the instance of the module.
     function initialize(address _addressProvider, bool _dustAdt) public initializer {
         // keep the address provider connecting contracts together
@@ -134,12 +141,14 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
             // Make sure to stay on safe size with the _sub deduction, we don't
             // want to drop balance to sub-zero amount, that would freak out the SafeMath.
             if (_token == tokens[i]) {
+                uint256 adjustedBalance = balance[_account][tokens[i]].add(_add).sub(_sub, "token sub exceeds balance");
+
                 // add adjusted token balance converted to value
                 // NOTE: this may revert on underflow if the _sub value exceeds balance,
                 // but it should never happen on normal protocol operations.
                 value = value.add(tokenValue(
                         tokens[i],
-                        balance[_account][tokens[i]].add(_add).sub(_sub, "token sub exceeds balance")
+                        adjustedBalance
                     ));
 
                 // we consumed the adjustment and can reset it
@@ -147,7 +156,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
                 _sub = 0;
             } else {
                 // simply add the token balance converted to value as-is
-                value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
+                    value = value.add(tokenValue(tokens[i], balance[_account][tokens[i]]));
             }
         }
 
@@ -170,7 +179,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 
     // add adds specified amount of tokens to given account
     // and updates the total supply references.
-    function add(address _account, address _token, uint256 _amount) public onlyMinter {
+    function add(address _account, address _token, uint256 _amount) public onlyMinterOrLiquidationManager {
         // update the token balance of the account
         balance[_account][_token] = balance[_account][_token].add(_amount);
 
@@ -183,7 +192,7 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
 
     // sub removes specified amount of tokens from given account
     // and updates the total balance references.
-    function sub(address _account, address _token, uint256 _amount) public onlyMinter {
+    function sub(address _account, address _token, uint256 _amount) public onlyMinterOrLiquidationManager {
         // update the balance of the account
         balance[_account][_token] = balance[_account][_token].sub(_amount);
 
@@ -217,5 +226,10 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
     // tokensCount returns the number of tokens enrolled to the list.
     function tokensCount() public view returns (uint256) {
         return tokens.length;
+    }
+
+    // getToken returns the specific token from index.
+    function getToken(uint256 _index) public view returns (address) {
+        return tokens[_index];
     }
 }
