@@ -337,8 +337,11 @@ contract(
           0: new BN('1'),
           1: borrower
         });
-
       });
+
+      it('increase time by 1 minute', async function() {
+        await this.fantomLiquidationManager.increaseTime(60);
+      })
 
       it('should get correct liquidation details', async function () {
         let details = await this.fantomLiquidationManager.getAuctionPricing(
@@ -350,7 +353,7 @@ contract(
         offeredRatio = offeringRatio;
         debtValue = 3366329999999999999998 / 1e18;
 
-        expect(offeringRatio.toString()).to.equal('20000000');
+        expect(offeringRatio.toString()).to.equal('30000000');
 
         /*
           offeringRatio:  20000000
@@ -388,14 +391,14 @@ contract(
         expect(weiToEther(currentBalance) * 1).to.equal(remainingBalance);
       });
 
-      it('the bidder should get 20% of the total wFTM collateral', async function () {
+      it('the bidder should get 30% of the total wFTM collateral', async function () {
         let balance = await this.mockToken.balanceOf(firstBidder);
 
         let offeredCollateral = (offeredRatio * PRICE_PRECISION * 9999) / 1e16;
         expect(weiToEther(balance)).to.equal(offeredCollateral.toString());
       });
 
-      it('the collateral pool should get the remaining 80% of the wFTM collateral back', async function () {
+      it('the collateral pool should get the remaining 70% of the wFTM collateral back', async function () {
         let balance = await this.collateralPool.balanceOf(borrower, this.mockToken.address);
 
         let remainingCollateral =
