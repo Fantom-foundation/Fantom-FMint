@@ -223,10 +223,8 @@ contract FantomLiquidationManager is
     );
     AuctionInformation storage _auction = auctionIndexer[_nonce];
     uint256 timeDiff = _now().sub(_auction.startTime);
-    uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = auctionBeginPrice.add(
-      currentRound.mul(_auction.intervalPrice)
-    );
+
+    uint256 offeringRatio = _getRatio(timeDiff);
     
     return (
       offeringRatio,
@@ -267,10 +265,7 @@ contract FantomLiquidationManager is
     );
 
     uint256 timeDiff = _now().sub(_auction.startTime);
-    uint256 currentRound = timeDiff.div(_auction.intervalTime);
-    uint256 offeringRatio = auctionBeginPrice.add(
-      currentRound.mul(_auction.intervalPrice)
-    );
+    uint256 offeringRatio = _getRatio(timeDiff);
 
     uint256 index;
 
@@ -404,6 +399,34 @@ contract FantomLiquidationManager is
 
     emit AuctionStarted(totalNonce, _targetAddress);
   }
+
+  function _getRatio(uint256 time) internal view returns (uint256) {
+     uint256 m;
+     uint256 c;
+     uint256 ratio;
+
+     if (time > 0 && time <= 60) {
+       m = 338983;
+       c = 9661020;
+     } else if (time >=60 && time <= 120) {
+       m = 50000;
+       c = 28000000;
+     } else if (time >= 120 && time <= 3600) {
+       m = 7184;
+       c = 34137600;
+     } else if (time >= 3600 && time <= 432000) {
+       m = 91;
+       c = 60688000;
+     } else {
+       ratio = 100000000;
+
+       return ratio;
+     }
+
+     ratio = m.mul(time).add(c);
+
+     return ratio;
+   }
 
   function _now() internal view returns (uint256) {
     return now;
