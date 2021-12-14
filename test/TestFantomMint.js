@@ -407,6 +407,10 @@ contract('FantomMint', function([
       });
     });
 
+    it('increase time by 1 minute', async function() {
+      await this.fantomLiquidationManager.increaseTime(60);
+    })
+
     it('should allow a bidder to bid', async function() {
       await this.fantomFUSD.approve(
         this.fantomLiquidationManager.address,
@@ -430,12 +434,12 @@ contract('FantomMint', function([
       expect(weiToEther(currentBalance) * 1).to.lessThan(4950);
     });
 
-    it('the bidder should get 20% of the total wFTM/xFTM collateral', async function() {
+    it('the bidder should get 30% of the total wFTM/xFTM collateral', async function() {
       let balanceOne = await this.mockTokenOne.balanceOf(firstBidder);
       let balanceTwo = await this.mockTokenTwo.balanceOf(firstBidder);
       
-      expect(weiToEther(balanceOne)).to.equal('1500');
-      expect(weiToEther(balanceTwo)).to.equal('1500');
+      expect(weiToEther(balanceOne)).to.equal('2250');
+      expect(weiToEther(balanceTwo)).to.equal('2250');
       
     });
 
@@ -444,12 +448,12 @@ contract('FantomMint', function([
       expect(weiToEther(balanceThree)).to.equal('0');
     })
 
-    it('the collateral pool should get the remaining 80% of the wFTM collateral back', async function() {
+    it('the collateral pool should get the remaining 70% of the wFTM collateral back', async function() {
       let balanceOne = await this.collateralPool.balanceOf(borrower, this.mockTokenOne.address);
       let balanceTwo = await this.collateralPool.balanceOf(borrower, this.mockTokenTwo.address);
 
-      expect(weiToEther(balanceOne)).to.equal('6000');
-      expect(weiToEther(balanceTwo)).to.equal('6000');
+      expect(weiToEther(balanceOne)).to.equal('5250');
+      expect(weiToEther(balanceTwo)).to.equal('5250');
     });
   });
 });
