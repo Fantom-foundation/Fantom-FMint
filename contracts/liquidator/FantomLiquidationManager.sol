@@ -26,15 +26,7 @@ contract FantomLiquidationManager is
   using Address for address;
   using SafeERC20 for ERC20;
 
-  // increasing contract's collateral value.
-  event Deposited(address indexed token, address indexed user, uint256 amount);
-
-  // decreasing contract's collateral value.
-  event Withdrawn(address indexed token, address indexed user, uint256 amount);
-
   event AuctionStarted(uint256 indexed nonce, address indexed user);
-  event AuctionRestarted(uint256 indexed nonce, address indexed user);
-
   event BidPlaced(uint256 indexed nonce, uint256 percentage, address indexed bidder, uint256 offeredRatio);
 
   struct AuctionInformation {
@@ -56,14 +48,14 @@ contract FantomLiquidationManager is
   bytes32 private constant MOD_TOKEN_REGISTRY = 'token_registry';
   bytes32 private constant MOD_ERC20_REWARD_TOKEN = 'erc20_reward_token';
 
-  mapping(uint256 => AuctionInformation) internal auctionIndexer;
+  mapping(uint256 => AuctionInformation) public getAuction;
 
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
 
   address public fantomMintContract;
 
-  uint256 internal totalNonce;
+  uint256 internal currentNonce;
 
   uint256 public initiatorBonus;
 
@@ -80,7 +72,7 @@ contract FantomLiquidationManager is
 
     // remember the address provider for the other protocol contracts connection
     addressProvider = IFantomMintAddressProvider(_addressProvider);
-    totalNonce = 0;
+    currentNonce = 0;
   }
 
   function updateAddressProvider(address _addressProvider) external onlyOwner {
@@ -137,10 +129,10 @@ contract FantomLiquidationManager is
     )
   {
     require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
+      getAuction[_nonce].remainingPercentage > 0,
       'Auction not found'
     );
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
+    AuctionInformation storage _auction = getAuction[_nonce];
     uint256 timeDiff = _now().sub(_auction.startTime);
 
     uint256 offeringRatio = _getRatio(timeDiff);
@@ -148,7 +140,7 @@ contract FantomLiquidationManager is
     return (
       offeringRatio,
       initiatorBonus,
-      auctionIndexer[_nonce].remainingPercentage,
+      getAuction[_nonce].remainingPercentage,
       _auction.startTime,
       _auction.collateralList,
       _auction.debtList
@@ -163,13 +155,13 @@ contract FantomLiquidationManager is
     require(msg.value == initiatorBonus, 'Insufficient funds to bid.');
 
     require(
-      auctionIndexer[_nonce].remainingPercentage > 0,
+      getAuction[_nonce].remainingPercentage > 0,
       'Auction not found'
     );
 
     require(_percentage > 0, 'Percent must be greater than 0');
 
-    AuctionInformation storage _auction = auctionIndexer[_nonce];
+    AuctionInformation storage _auction = getAuction[_nonce];
     if (_percentage > _auction.remainingPercentage) {
       _percentage = _auction.remainingPercentage;
     }
@@ -279,10 +271,10 @@ contract FantomLiquidationManager is
     _tempAuction.initiator = msg.sender;
     _tempAuction.startTime = _now();
 
-    totalNonce += 1;
-    auctionIndexer[totalNonce] = _tempAuction;
+    currentNonce += 1;
+    getAuction[currentNonce] = _tempAuction;
 
-    AuctionInformation storage _auction = auctionIndexer[totalNonce];
+    AuctionInformation storage _auction = getAuction[currentNonce];
 
     uint256 index;
     uint256 tokenCount;
@@ -319,7 +311,7 @@ contract FantomLiquidationManager is
 
     _auction.remainingPercentage = PRECISION;
 
-    emit AuctionStarted(totalNonce, _targetAddress);
+    emit AuctionStarted(currentNonce, _targetAddress);
   }
 
   function _getRatio(uint256 time) internal view returns (uint256) {
