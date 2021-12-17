@@ -61,19 +61,13 @@ contract FantomLiquidationManager is
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
 
-  address public fantomUSD;
   address public fantomMintContract;
-  address public fantomFeeVault;
 
   uint256 internal totalNonce;
-  uint256 internal defaultMinPrice;
-  uint256 internal pricePrecision;
-  uint256 internal percentPrecision;
-  uint256 internal auctionDuration;
 
   uint256 public initiatorBonus;
 
-  uint256 constant PRECISION_RATIO = 10**8;
+  uint256 constant PRECISION = 10**8;
   uint256 constant STABILITY_RATIO = 101;
 
   // initialize initializes the contract properly before the first use.
@@ -86,40 +80,7 @@ contract FantomLiquidationManager is
 
     // remember the address provider for the other protocol contracts connection
     addressProvider = IFantomMintAddressProvider(_addressProvider);
-
-    // initialize default values
-    defaultMinPrice = PRECISION_RATIO;
-    pricePrecision = PRECISION_RATIO;
-    percentPrecision = PRECISION_RATIO;
-    auctionDuration = 80000;
     totalNonce = 0;
-  }
-
-  function updateAuctionMinPrice(uint256 _defaultMinPrice) external onlyOwner {
-    defaultMinPrice = _defaultMinPrice;
-  }
-
-  function updatePercentPrecision(uint256 _percentPrecision)
-    external
-    onlyOwner
-  {
-    percentPrecision = _percentPrecision;
-  }
-
-  function updatePricePrecision(uint256 _pricePrecision) external onlyOwner {
-    pricePrecision = _pricePrecision;
-  }
-
-  function updateAuctionDuration(uint256 _auctionDuration) external onlyOwner {
-    auctionDuration = _auctionDuration;
-  }
-
-  function updateFantomFeeVault(address _fantomFeeVault) external onlyOwner {
-    fantomFeeVault = _fantomFeeVault;
-  }
-
-  function updateFantomUSDAddress(address _fantomUSD) external onlyOwner {
-    fantomUSD = _fantomUSD;
   }
 
   function updateAddressProvider(address _addressProvider) external onlyOwner {
@@ -213,13 +174,13 @@ contract FantomLiquidationManager is
       _percentage = _auction.remainingPercentage;
     }
 
-    if (_auction.remainingPercentage == percentPrecision) {
+    if (_auction.remainingPercentage == PRECISION) {
       _auction.initiator.call.value(msg.value)('');
     } else {
       msg.sender.call.value(msg.value)('');
     }
 
-    uint256 actualPercentage = _percentage.mul(percentPrecision).div(
+    uint256 actualPercentage = _percentage.mul(PRECISION).div(
       _auction.remainingPercentage
     );
 
@@ -234,7 +195,7 @@ contract FantomLiquidationManager is
       uint256 debtAmount = _auction
         .debtValue[index]
         .mul(actualPercentage)
-        .div(percentPrecision);
+        .div(PRECISION);
       require(
         debtAmount <=
           ERC20(_auction.debtList[index]).allowance(msg.sender, address(this)),
@@ -248,19 +209,19 @@ contract FantomLiquidationManager is
     }
 
     uint256 collateralPercent = actualPercentage.mul(offeringRatio).div(
-      pricePrecision
+      PRECISION
     );
 
     for (index = 0; index < _auction.collateralList.length; index++) {
       uint256 collatAmount = _auction
         .collateralValue[index]
         .mul(collateralPercent)
-        .div(percentPrecision);
+        .div(PRECISION);
       
       uint256 processedCollatAmount = _auction
         .collateralValue[index]
         .mul(actualPercentage)
-        .div(percentPrecision);
+        .div(PRECISION);
 
       FantomMint(fantomMintContract).settleLiquidationBid(
         _auction.collateralList[index],
@@ -281,7 +242,7 @@ contract FantomLiquidationManager is
 
     emit BidPlaced(_nonce, _percentage, msg.sender, offeringRatio);
 
-    if (actualPercentage == percentPrecision) {
+    if (actualPercentage == PRECISION) {
       // Auction ended
       for (index = 0; index < _auction.collateralList.length; index++) {
         uint256 collatAmount = _auction.collateralValue[index];
@@ -356,7 +317,7 @@ contract FantomLiquidationManager is
       }
     }
 
-    _auction.remainingPercentage = percentPrecision;
+    _auction.remainingPercentage = PRECISION;
 
     emit AuctionStarted(totalNonce, _targetAddress);
   }
