@@ -35,6 +35,8 @@ contract FantomLiquidationManager is
   event AuctionStarted(uint256 indexed nonce, address indexed user);
   event AuctionRestarted(uint256 indexed nonce, address indexed user);
 
+  event BidPlaced(uint256 indexed nonce, uint256 percentage, address indexed bidder, uint256 offeredRatio);
+
   struct AuctionInformation {
     address owner;
     address payable initiator;
@@ -274,6 +276,8 @@ contract FantomLiquidationManager is
     _auction.remainingPercentage = _auction.remainingPercentage.sub(
       _percentage
     );
+
+    emit BidPlaced(_nonce, _percentage, msg.sender, offeringRatio);
 
     if (actualPercentage == percentPrecision) {
       // Auction ended
