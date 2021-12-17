@@ -59,8 +59,6 @@ contract FantomLiquidationManager is
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
 
-  mapping(address => bool) public admins;
-
   address public fantomUSD;
   address public fantomMintContract;
   address public fantomFeeVault;
@@ -88,20 +86,11 @@ contract FantomLiquidationManager is
     addressProvider = IFantomMintAddressProvider(_addressProvider);
 
     // initialize default values
-    admins[owner] = true;
     defaultMinPrice = PRECISION_RATIO;
     pricePrecision = PRECISION_RATIO;
     percentPrecision = PRECISION_RATIO;
     auctionDuration = 80000;
     totalNonce = 0;
-  }
-
-  function addAdmin(address usr) external onlyOwner {
-    admins[usr] = true;
-  }
-
-  function removeAdmin(address usr) external onlyOwner {
-    admins[usr] = false;
   }
 
   function updateAuctionMinPrice(uint256 _defaultMinPrice) external onlyOwner {
@@ -144,11 +133,6 @@ contract FantomLiquidationManager is
 
   function updateInitiatorBonus(uint256 _initatorBonus) external onlyOwner {
     initiatorBonus = _initatorBonus;
-  }
-
-  modifier auth() {
-    require(admins[msg.sender], 'Sender not authorized');
-    _;
   }
 
   modifier onlyNotContract() {
@@ -351,6 +335,8 @@ contract FantomLiquidationManager is
         }
       }
     }
+
+    require(_auction.collateralList.length > 0, 'no tradable collateral found');
 
     tokenCount = debtPool.tokensCount();
     
