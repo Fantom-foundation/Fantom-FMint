@@ -39,8 +39,6 @@ contract FantomLiquidationManager is
     address owner;
     address payable initiator;
     uint256 startTime;
-    uint256 intervalTime;
-    uint256 intervalPrice;
     uint256 remainingPercentage;
     address[] collateralList;
     address[] debtList;
@@ -68,9 +66,6 @@ contract FantomLiquidationManager is
   address public fantomFeeVault;
 
   uint256 internal totalNonce;
-  uint256 internal intervalPriceDiff;
-  uint256 internal intervalTimeDiff;
-  uint256 internal auctionBeginPrice;
   uint256 internal defaultMinPrice;
   uint256 internal pricePrecision;
   uint256 internal percentPrecision;
@@ -94,9 +89,6 @@ contract FantomLiquidationManager is
 
     // initialize default values
     admins[owner] = true;
-    auctionBeginPrice = 20000000;
-    intervalPriceDiff = 1000;
-    intervalTimeDiff = 1;
     defaultMinPrice = PRECISION_RATIO;
     pricePrecision = PRECISION_RATIO;
     percentPrecision = PRECISION_RATIO;
@@ -110,27 +102,6 @@ contract FantomLiquidationManager is
 
   function removeAdmin(address usr) external onlyOwner {
     admins[usr] = false;
-  }
-
-  function updateAuctionBeginPrice(uint256 _auctionBeginPrice)
-    external
-    onlyOwner
-  {
-    auctionBeginPrice = _auctionBeginPrice;
-  }
-
-  function updateIntervalPriceDiff(uint256 _intervalPriceDiff)
-    external
-    onlyOwner
-  {
-    intervalPriceDiff = _intervalPriceDiff;
-  }
-
-  function updateIntervalTimeDiff(uint256 _intervalTimeDiff)
-    external
-    onlyOwner
-  {
-    intervalTimeDiff = _intervalTimeDiff;
   }
 
   function updateAuctionMinPrice(uint256 _defaultMinPrice) external onlyOwner {
@@ -355,9 +326,7 @@ contract FantomLiquidationManager is
     AuctionInformation memory _tempAuction;
     _tempAuction.owner = _targetAddress;
     _tempAuction.initiator = msg.sender;
-    _tempAuction.intervalPrice = intervalPriceDiff;
     _tempAuction.startTime = _now();
-    _tempAuction.intervalTime = intervalTimeDiff;
 
     totalNonce += 1;
     auctionIndexer[totalNonce] = _tempAuction;

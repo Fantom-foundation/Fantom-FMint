@@ -185,7 +185,7 @@ contract('FantomLiquidationManager', function([
     });
   });
 
-  describe('Liquidation phase [Price goes down, two bidders take part in the auction]', function() {
+  describe('Offering ratio provided according to time', function() {
     before(async function() {
       await this.mockToken.mint(borrower, etherToWei(9999));
 
