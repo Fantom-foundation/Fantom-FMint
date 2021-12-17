@@ -284,9 +284,16 @@ contract(
           { from: firstBidder }
         );
 
-        await this.fantomLiquidationManager.bid(1, new BN('25000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('25000000'), {
           from: firstBidder,
           value: etherToWei(0.05)
+        });
+  
+        expectEvent(_bidPlacedEvent, 'BidPlaced', {
+          nonce: new BN('1'),
+          percentage: new BN('25000000'),
+          bidder: firstBidder,
+          offeredRatio: new BN('30000000')
         });
       });
 
@@ -319,11 +326,18 @@ contract(
           { from: secondBidder }
         );
 
-        await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
           from: secondBidder,
           value: etherToWei(0.05)
         });
-
+  
+        expectEvent(_bidPlacedEvent, 'BidPlaced', {
+          nonce: new BN('1'),
+          percentage: new BN('75000000'),
+          bidder: secondBidder,
+          offeredRatio: new BN('30000000')
+        });
+        
         oldBidderTwoBalance = await provider.getBalance(secondBidder);
       });
 
