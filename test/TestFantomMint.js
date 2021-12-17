@@ -33,7 +33,6 @@ contract('FantomMint', function([
   borrower,
   firstBidder,
   secondBidder,
-  fantomFeeVault,
   initiator
 ]) {
   before(async function() {
@@ -198,15 +197,7 @@ contract('FantomMint', function([
       { from: owner }
     );
 
-    await this.fantomLiquidationManager.updateFantomUSDAddress(
-      this.fantomFUSD.address
-    );
-
     await this.fantomLiquidationManager.updateInitiatorBonus(etherToWei(0.05));
-
-    await this.fantomLiquidationManager.updateFantomFeeVault(fantomFeeVault, {
-      from: owner
-    });
 
     // mint firstBidder enough fUSD to bid for liquidated collateral
     await this.fantomFUSD.mint(firstBidder, etherToWei(10000), {
