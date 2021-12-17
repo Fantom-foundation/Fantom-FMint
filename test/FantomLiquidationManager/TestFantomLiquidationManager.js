@@ -344,12 +344,13 @@ contract(
           new BN('1')
         );
 
-        const { 0: offeringRatio } = details;
+        const { 0: offeringRatio, 3: startTime } = details;
 
         offeredRatio = offeringRatio;
         debtValue = 3366329999999999999998 / 1e18;
 
         expect(offeringRatio.toString()).to.equal('30000000');
+        expect(startTime.toString()).to.equal('0');
 
         /*
           offeringRatio:  20000000

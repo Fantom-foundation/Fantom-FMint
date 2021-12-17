@@ -38,7 +38,7 @@ contract FantomLiquidationManager is
   event BidPlaced(uint256 indexed nonce, uint256 percentage, address indexed bidder, uint256 offeredRatio);
 
   struct AuctionInformation {
-    address owner;
+    address target;
     address payable initiator;
     uint256 startTime;
     uint256 remainingPercentage;
@@ -170,6 +170,7 @@ contract FantomLiquidationManager is
       uint256,
       uint256,
       uint256,
+      uint256,
       address[] memory,
       address[] memory
     )
@@ -187,6 +188,7 @@ contract FantomLiquidationManager is
       offeringRatio,
       initiatorBonus,
       auctionIndexer[_nonce].remainingPercentage,
+      _auction.startTime,
       _auction.collateralList,
       _auction.debtList
     );
@@ -266,7 +268,7 @@ contract FantomLiquidationManager is
         collatAmount
       );
 
-      collateralPool.add(_auction.owner, _auction.collateralList[index], processedCollatAmount.sub(collatAmount));
+      collateralPool.add(_auction.target, _auction.collateralList[index], processedCollatAmount.sub(collatAmount));
 
       _auction.collateralValue[index] = _auction
         .collateralValue[index]
@@ -283,7 +285,7 @@ contract FantomLiquidationManager is
       // Auction ended
       for (index = 0; index < _auction.collateralList.length; index++) {
         uint256 collatAmount = _auction.collateralValue[index];
-        collateralPool.add(_auction.owner, _auction.collateralList[index], collatAmount);
+        collateralPool.add(_auction.target, _auction.collateralList[index], collatAmount);
         _auction.collateralValue[index] = 0;
       }
     }
@@ -312,7 +314,7 @@ contract FantomLiquidationManager is
     addressProvider.getRewardDistribution().rewardUpdate(_targetAddress);
 
     AuctionInformation memory _tempAuction;
-    _tempAuction.owner = _targetAddress;
+    _tempAuction.target = _targetAddress;
     _tempAuction.initiator = msg.sender;
     _tempAuction.startTime = _now();
 
