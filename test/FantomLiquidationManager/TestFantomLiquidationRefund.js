@@ -33,6 +33,7 @@ let totalSupply;
 let finalInitiatorBalance;
 let oldBidderTwoBalance;
 let provider;
+let startTime;
 
 const PRICE_PRECISION = 10 ** 8;
 
@@ -240,6 +241,9 @@ contract(
       });
 
       it('should start liquidation', async function () {
+        startTime = await time.latest();
+        await this.fantomLiquidationManager.setTime(startTime);
+
         let _auctionStartEvent =
           await this.fantomLiquidationManager.liquidate(borrower, {
             from: initiator
@@ -251,13 +255,12 @@ contract(
         });
       });
 
-      it('increase time by 1 minute', async function() {
-        await this.fantomLiquidationManager.increaseTime(60);
-      })
-
       it('should get correct liquidation details', async function () {
+        let newTime = Number(startTime) + 60; //passing a timestamp with 60 additional seconds
+
         let details = await this.fantomLiquidationManager.getAuctionPricing(
-          new BN('1')
+          new BN('1'),
+          new BN(newTime)
         );
 
         const { 0: offeringRatio } = details;
@@ -267,6 +270,10 @@ contract(
 
         expect(offeringRatio.toString()).to.equal('30000000');
       });
+
+      it('increase time by 1 minute', async function() {
+        await this.fantomLiquidationManager.increaseTime(60);
+      })
 
       it('should allow a bidder1 to bid (25%)', async function () {
         await this.fantomFUSD.approve(
@@ -295,7 +302,7 @@ contract(
         ).to.be.greaterThanOrEqual(10000);
       });
 
-      it('the bidder1 should have (10000 - (3366.33 * 0.25)) -9158.41 fUSD remaining', async function () {
+      it('the bidder1 should have (10000 - (3366.33 * 0.25)) 9158.41 fUSD remaining', async function () {
         let remainingBalance = 10000 - debtValue * 0.25;
         let currentBalance = await this.fantomFUSD.balanceOf(firstBidder);
 

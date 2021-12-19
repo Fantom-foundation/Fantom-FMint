@@ -116,7 +116,7 @@ contract FantomLiquidationManager is
         );
   }
 
-    function getAuctionPricing(uint256 _nonce)
+    function getAuctionPricing(uint256 _nonce, uint256 currentTime)
     external
     view
     returns (
@@ -133,7 +133,7 @@ contract FantomLiquidationManager is
       'Auction not found'
     );
     AuctionInformation storage _auction = getAuction[_nonce];
-    uint256 timeDiff = _now().sub(_auction.startTime);
+    uint256 timeDiff = currentTime.sub(_auction.startTime);
 
     uint256 offeringRatio = _getRatio(timeDiff);
     
@@ -188,6 +188,11 @@ contract FantomLiquidationManager is
         .debtValue[index]
         .mul(actualPercentage)
         .div(PRECISION);
+
+      if (actualPercentage < PRECISION){
+        debtAmount = debtAmount.add(1);
+      }
+
       require(
         debtAmount <=
           ERC20(_auction.debtList[index]).allowance(msg.sender, address(this)),

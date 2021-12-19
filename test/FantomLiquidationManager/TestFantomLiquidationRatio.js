@@ -27,7 +27,7 @@ const FantomFUSD = artifacts.require('FantomFUSD');
 const MockToken = artifacts.require('MockToken');
 const MockPriceOracleProxy = artifacts.require('MockPriceOracleProxy');
 
-let provider;
+let startTime;
 
 contract('FantomLiquidationManager', function([
   owner,
@@ -196,15 +196,19 @@ contract('FantomLiquidationManager', function([
         etherToWei(0.5)
       );
 
+      startTime = await time.latest();
+      await this.fantomLiquidationManager.setTime(startTime);
+
       await this.fantomLiquidationManager.liquidate(borrower, {
         from: initiator
       });
     });
 
     it('should show offering ratio -- 30% (after 1 minute)', async function() {
-      await this.fantomLiquidationManager.increaseTime(60);
+      startTime = Number(startTime) + 60; //passing a timestamp with additional 60 seconds
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -212,9 +216,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 32% (after 1 minute 20 seconds)', async function() {
-      await this.fantomLiquidationManager.increaseTime(20);
+      startTime = Number(startTime) + 20;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -222,9 +227,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 34% (after 2 minutes)', async function() {
-      await this.fantomLiquidationManager.increaseTime(40);
+      startTime = Number(startTime) + 40;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -232,9 +238,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 47% (after 30 minutes)', async function() {
-      await this.fantomLiquidationManager.increaseTime(1680);
+      startTime = Number(startTime) + 1680;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -242,9 +249,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 60% (after 1 hour)', async function() {
-      await this.fantomLiquidationManager.increaseTime(1800);
+      startTime = Number(startTime) + 1800;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -252,9 +260,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 84% (after 3 days)', async function() {
-      await this.fantomLiquidationManager.increaseTime(255600);
+      startTime = Number(startTime) + 255600;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -262,9 +271,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 100% (after 5 days)', async function() {
-      await this.fantomLiquidationManager.increaseTime(172800);
+      startTime = Number(startTime) + 172800;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
@@ -272,9 +282,10 @@ contract('FantomLiquidationManager', function([
     });
 
     it('should show offering ratio -- 100% (after 5 and 1 hour)', async function() {
-      await this.fantomLiquidationManager.increaseTime(428460);
+      startTime = Number(startTime) + 428460;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1')
+        new BN('1'),
+        new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
