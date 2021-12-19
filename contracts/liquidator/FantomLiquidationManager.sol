@@ -49,6 +49,7 @@ contract FantomLiquidationManager is
   bytes32 private constant MOD_ERC20_REWARD_TOKEN = 'erc20_reward_token';
 
   mapping(uint256 => AuctionInformation) public getAuction;
+  mapping(address => uint256) public getBurntAmount;
 
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
@@ -180,10 +181,13 @@ contract FantomLiquidationManager is
     uint256 offeringRatio = _getRatio(timeDiff);
 
     uint256 index;
+    address debtTokenAddress;
 
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
 
     for (index = 0; index < _auction.debtList.length; index++) {
+      debtTokenAddress = _auction.debtList[index];
+
       uint256 debtAmount = _auction
         .debtValue[index]
         .mul(actualPercentage)
@@ -195,11 +199,13 @@ contract FantomLiquidationManager is
 
       require(
         debtAmount <=
-          ERC20(_auction.debtList[index]).allowance(msg.sender, address(this)),
+          ERC20(debtTokenAddress).allowance(msg.sender, address(this)),
         'Low allowance of debt token.'
       );
 
-      ERC20Burnable(_auction.debtList[index]).burnFrom(msg.sender, debtAmount);
+      getBurntAmount[debtTokenAddress] = getBurntAmount[debtTokenAddress].add(debtAmount);
+
+      ERC20Burnable(debtTokenAddress).burnFrom(msg.sender, debtAmount);
       _auction.debtValue[index] = _auction
         .debtValue[index]
         .sub(debtAmount);
