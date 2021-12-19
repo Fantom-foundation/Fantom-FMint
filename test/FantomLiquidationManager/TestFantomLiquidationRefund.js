@@ -381,10 +381,11 @@ contract(
       });
 
       it('should show the new total supply (after burning tokens)', async function () {
+        let burntAmount = await this.fantomLiquidationManager.getBurntAmount(this.fantomFUSD.address);
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          Number((totalSupply - debtValue).toFixed(3))
+         Number((totalSupply - (weiToEther(burntAmount) * 1)).toFixed(3))
         );
       });
     });

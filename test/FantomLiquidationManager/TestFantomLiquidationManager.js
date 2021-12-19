@@ -398,11 +398,12 @@ contract(
         expect(weiToEther(balance)).to.equal(remainingCollateral.toString());
       });
 
-      it('should show the new total supply (after burning tokens)', async function () {
+      it('should show the new total supply (after burning tokens)', async function () { 
+        let burntAmount = await this.fantomLiquidationManager.getBurntAmount(this.fantomFUSD.address);
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          totalSupply - debtValue
+          totalSupply - weiToEther(burntAmount)
         );
       });
     });
