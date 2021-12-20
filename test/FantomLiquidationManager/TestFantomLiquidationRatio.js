@@ -9,7 +9,7 @@ const {
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 
-const { weiToEther, etherToWei } = require('../utils/index');
+const { etherToWei, amount18 } = require('../utils/index');
 
 const FantomLiquidationManager = artifacts.require(
   'MockFantomLiquidationManager'
@@ -212,7 +212,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('30000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.3));
     });
 
     it('should show offering ratio -- 32% (after 1 minute 20 seconds)', async function() {
@@ -223,7 +223,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('32000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.32));
     });
 
     it('should show offering ratio -- 34% (after 2 minutes)', async function() {
@@ -234,10 +234,10 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('34000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.34));
     });
 
-    it('should show offering ratio -- 47% (after 30 minutes)', async function() {
+    it('should show offering ratio -- 47.1% (after 30 minutes)', async function() {
       startTime = Number(startTime) + 1680;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
@@ -245,7 +245,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('47068800');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.470689655172414000));
     });
 
     it('should show offering ratio -- 60% (after 1 hour)', async function() {
@@ -256,10 +256,10 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('60000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.6));
     });
 
-    it('should show offering ratio -- 84% (after 3 days)', async function() {
+    it('should show offering ratio -- 84.3% (after 3 days)', async function() {
       startTime = Number(startTime) + 255600;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
@@ -267,7 +267,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('84275200');
+      expect(offeringRatio.toString()).to.be.equal(amount18('0.842689075630297600'));
     });
 
     it('should show offering ratio -- 100% (after 5 days)', async function() {
@@ -278,7 +278,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('100000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(1));
     });
 
     it('should show offering ratio -- 100% (after 5 and 1 hour)', async function() {
@@ -289,7 +289,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('100000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(1));
     });
   });
 });

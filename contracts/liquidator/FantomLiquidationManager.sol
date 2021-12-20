@@ -60,7 +60,7 @@ contract FantomLiquidationManager is
 
   uint256 public initiatorBonus;
 
-  uint256 constant PRECISION = 10**8;
+  uint256 constant PRECISION = 1e18;
   uint256 constant STABILITY_RATIO = 101;
 
   // initialize initializes the contract properly before the first use.
@@ -331,19 +331,19 @@ contract FantomLiquidationManager is
      uint256 ratio;
 
      if (time <= 60) {
-       m = 338983;
-       c = 9661020;
+       m = 3389830508474576;
+       c = 96610169491525440;
      } else if (time <= 120) {
-       m = 50000;
-       c = 28000000;
+       m = 5e14;
+       c = 28e16;
      } else if (time <= 3600) {
-       m = 7184;
-       c = 34137600;
+       m = 71839080459770;
+       c = 341379310344828000;
      } else if (time <= 432000) {
-       m = 91;
-       c = 60688000;
+       m = 910364145658;
+       c = 606722689075744000;
      } else {
-       ratio = 100000000;
+       ratio = 1e18;
 
        return ratio;
      }
