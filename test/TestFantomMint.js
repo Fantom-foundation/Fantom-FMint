@@ -33,7 +33,6 @@ contract('FantomMint', function([
   borrower,
   firstBidder,
   secondBidder,
-  fantomFeeVault,
   initiator
 ]) {
   before(async function() {
@@ -198,19 +197,7 @@ contract('FantomMint', function([
       { from: owner }
     );
 
-    await this.fantomLiquidationManager.updateFantomUSDAddress(
-      this.fantomFUSD.address
-    );
-
     await this.fantomLiquidationManager.updateInitiatorBonus(etherToWei(0.05));
-
-    await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
-
-    await this.fantomLiquidationManager.updateFantomFeeVault(fantomFeeVault, {
-      from: owner
-    });
-
-    await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
 
     // mint firstBidder enough fUSD to bid for liquidated collateral
     await this.fantomFUSD.mint(firstBidder, etherToWei(10000), {
@@ -418,9 +405,16 @@ contract('FantomMint', function([
         { from: firstBidder }
       );
 
-      await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+      let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
         from: firstBidder,
         value: etherToWei(0.05)
+      });
+
+      expectEvent(_bidPlacedEvent, 'BidPlaced', {
+        nonce: new BN('1'),
+        percentage: new BN('100000000'),
+        bidder: firstBidder,
+        offeredRatio: new BN('30000000')
       });
     });
 

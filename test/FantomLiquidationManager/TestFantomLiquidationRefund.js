@@ -33,6 +33,7 @@ let totalSupply;
 let finalInitiatorBalance;
 let oldBidderTwoBalance;
 let provider;
+let startTime;
 
 const PRICE_PRECISION = 10 ** 8;
 
@@ -44,7 +45,6 @@ contract(
     borrower,
     firstBidder,
     secondBidder,
-    fantomFeeVault,
     initiator
   ]) {
     before(async function () {
@@ -171,21 +171,9 @@ contract(
         { from: owner }
       );
 
-      await this.fantomLiquidationManager.updateFantomUSDAddress(
-        this.fantomFUSD.address
-      );
-
       await this.fantomLiquidationManager.updateInitiatorBonus(
         etherToWei(0.05)
       );
-
-      await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
-
-      await this.fantomLiquidationManager.updateFantomFeeVault(fantomFeeVault, {
-        from: owner
-      });
-
-      await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
 
       // mint firstBidder enough fUSD to bid for liquidated collateral
       await this.fantomFUSD.mint(firstBidder, etherToWei(10000), {
@@ -253,6 +241,9 @@ contract(
       });
 
       it('should start liquidation', async function () {
+        startTime = await time.latest();
+        await this.fantomLiquidationManager.setTime(startTime);
+
         let _auctionStartEvent =
           await this.fantomLiquidationManager.liquidate(borrower, {
             from: initiator
@@ -264,13 +255,12 @@ contract(
         });
       });
 
-      it('increase time by 1 minute', async function() {
-        await this.fantomLiquidationManager.increaseTime(60);
-      })
-
       it('should get correct liquidation details', async function () {
+        let newTime = Number(startTime) + 60; //passing a timestamp with 60 additional seconds
+
         let details = await this.fantomLiquidationManager.getAuctionPricing(
-          new BN('1')
+          new BN('1'),
+          new BN(newTime)
         );
 
         const { 0: offeringRatio } = details;
@@ -281,6 +271,10 @@ contract(
         expect(offeringRatio.toString()).to.equal('30000000');
       });
 
+      it('increase time by 1 minute', async function() {
+        await this.fantomLiquidationManager.increaseTime(60);
+      })
+
       it('should allow a bidder1 to bid (25%)', async function () {
         await this.fantomFUSD.approve(
           this.fantomLiquidationManager.address,
@@ -288,9 +282,16 @@ contract(
           { from: firstBidder }
         );
 
-        await this.fantomLiquidationManager.bid(1, new BN('25000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('25000000'), {
           from: firstBidder,
           value: etherToWei(0.05)
+        });
+  
+        expectEvent(_bidPlacedEvent, 'BidPlaced', {
+          nonce: new BN('1'),
+          percentage: new BN('25000000'),
+          bidder: firstBidder,
+          offeredRatio: new BN('30000000')
         });
       });
 
@@ -301,7 +302,7 @@ contract(
         ).to.be.greaterThanOrEqual(10000);
       });
 
-      it('the bidder1 should have (10000 - (3366.33 * 0.25)) -9158.41 fUSD remaining', async function () {
+      it('the bidder1 should have (10000 - (3366.33 * 0.25)) 9158.41 fUSD remaining', async function () {
         let remainingBalance = 10000 - debtValue * 0.25;
         let currentBalance = await this.fantomFUSD.balanceOf(firstBidder);
 
@@ -323,11 +324,18 @@ contract(
           { from: secondBidder }
         );
 
-        await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
           from: secondBidder,
           value: etherToWei(0.05)
         });
-
+  
+        expectEvent(_bidPlacedEvent, 'BidPlaced', {
+          nonce: new BN('1'),
+          percentage: new BN('75000000'),
+          bidder: secondBidder,
+          offeredRatio: new BN('30000000')
+        });
+        
         oldBidderTwoBalance = await provider.getBalance(secondBidder);
       });
 
@@ -373,10 +381,11 @@ contract(
       });
 
       it('should show the new total supply (after burning tokens)', async function () {
+        let burntAmount = await this.fantomLiquidationManager.getBurntAmount(this.fantomFUSD.address);
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          Number((totalSupply - debtValue).toFixed(3))
+         Number((totalSupply - (weiToEther(burntAmount) * 1)).toFixed(3))
         );
       });
     });

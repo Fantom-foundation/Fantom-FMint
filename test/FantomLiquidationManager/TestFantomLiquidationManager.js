@@ -30,6 +30,7 @@ let debtValue;
 let offeredRatio;
 let totalSupply;
 let provider;
+let startTime;
 
 const PRICE_PRECISION = 10 ** 8;
 
@@ -41,7 +42,6 @@ contract(
     borrower,
     firstBidder,
     secondBidder,
-    fantomFeeVault,
     initiator
   ]) {
     before(async function () {
@@ -185,21 +185,9 @@ contract(
         { from: owner }
       );
 
-      await this.fantomLiquidationManager.updateFantomUSDAddress(
-        this.fantomFUSD.address
-      );
-
       await this.fantomLiquidationManager.updateInitiatorBonus(
         etherToWei(0.05)
       );
-
-      await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
-
-      await this.fantomLiquidationManager.updateFantomFeeVault(fantomFeeVault, {
-        from: owner
-      });
-
-      await this.fantomLiquidationManager.addAdmin(admin, { from: owner });
 
       // mint firstBidder enough fUSD to bid for liquidated collateral
       await this.fantomFUSD.mint(firstBidder, etherToWei(10000), {
@@ -328,6 +316,9 @@ contract(
       });
 
       it('should start liquidation', async function () {
+      startTime = await time.latest();
+      await this.fantomLiquidationManager.setTime(startTime);
+
         let _auctionStartEvent =
           await this.fantomLiquidationManager.liquidate(borrower, {
             from: initiator
@@ -339,32 +330,26 @@ contract(
         });
       });
 
-      it('increase time by 1 minute', async function() {
-        await this.fantomLiquidationManager.increaseTime(60);
-      })
+      it('should get correct auction details', async function () {
+        let newTime = Number(startTime) + 60; //passing a timestamp with 60 additional seconds
 
-      it('should get correct liquidation details', async function () {
         let details = await this.fantomLiquidationManager.getAuctionPricing(
-          new BN('1')
+          new BN('1'),
+          new BN(newTime)
         );
 
-        const { 0: offeringRatio } = details;
+        const { 0: offeringRatio, 3: auctionStartTime } = details;
 
         offeredRatio = offeringRatio;
         debtValue = 3366329999999999999998 / 1e18;
 
         expect(offeringRatio.toString()).to.equal('30000000');
-
-        /*
-          offeringRatio:  20000000
-          startTime:  0
-          endTime:  80000
-          collateralList:  0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
-          collateralValue:  999900000000000000
-          debtList:  0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
-          debtValue:  3366329999999999999998
-      */
+        expect(auctionStartTime.toString()).to.equal(startTime.toString());
       });
+
+      it('increase time by 1 minute', async function() {
+        await this.fantomLiquidationManager.increaseTime(60);
+      })
 
       it('should allow a bidder to bid', async function () {
         await this.fantomFUSD.approve(
@@ -373,9 +358,16 @@ contract(
           { from: firstBidder }
         );
 
-        await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
           from: firstBidder,
           value: etherToWei(0.05)
+        });
+  
+        expectEvent(_bidPlacedEvent, 'BidPlaced', {
+          nonce: new BN('1'),
+          percentage: new BN('100000000'),
+          bidder: firstBidder,
+          offeredRatio: new BN('30000000')
         });
       });
 
@@ -406,11 +398,12 @@ contract(
         expect(weiToEther(balance)).to.equal(remainingCollateral.toString());
       });
 
-      it('should show the new total supply (after burning tokens)', async function () {
+      it('should show the new total supply (after burning tokens)', async function () { 
+        let burntAmount = await this.fantomLiquidationManager.getBurntAmount(this.fantomFUSD.address);
         let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
 
         expect(Number(newTotalSupply)).to.equal(
-          totalSupply - debtValue
+          totalSupply - weiToEther(burntAmount)
         );
       });
     });
