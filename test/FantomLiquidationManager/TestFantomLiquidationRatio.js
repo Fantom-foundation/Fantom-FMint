@@ -215,7 +215,7 @@ contract('FantomLiquidationManager', function([
       expect(offeringRatio.toString()).to.be.equal(amount18(0.3));
     });
 
-    it('should show offering ratio -- 32.6% (after 1 minute 20 seconds)', async function() {
+    it('should show offering ratio -- 32.6% (after 1 minute 40 seconds)', async function() {
       startTime = Number(startTime) + 40;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
