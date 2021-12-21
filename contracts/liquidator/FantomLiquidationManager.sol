@@ -330,19 +330,19 @@ contract FantomLiquidationManager is
      uint256 c;
      uint256 ratio;
 
-     if (time <= 60) {
+     if (time <= 60) { // up to 1 minute -> 1-30%
        m = 3389830508474578;
        c = 96610169491525320;
-     } else if (time <= 120) {
+     } else if (time <= 120) { // up to 2 minutes -> 30-34%
        m = 666666666666667;
        c = 259999999999999960;
-     } else if (time <= 3600) {
+     } else if (time <= 3600) { // up to 1 hour -> 34-60%
        m = 74712643678160;
        c = 331034482758624000;
-     } else if (time <= 432000) {
+     } else if (time <= 432000) { // up to 5 days -> 60-100%
        m = 933706816059;
        c = 596638655462512000;
-     } else {
+     } else { // beyond 5 days -> 100%
        ratio = 1e18;
 
        return ratio;
