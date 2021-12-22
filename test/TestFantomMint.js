@@ -405,16 +405,16 @@ contract('FantomMint', function([
         { from: firstBidder }
       );
 
-      let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+      let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, etherToWei(1), {
         from: firstBidder,
         value: etherToWei(0.05)
       });
 
       expectEvent(_bidPlacedEvent, 'BidPlaced', {
         nonce: new BN('1'),
-        percentage: new BN('100000000'),
+        percentage: etherToWei(1),
         bidder: firstBidder,
-        offeredRatio: new BN('30000000')
+        offeredRatio: etherToWei(0.3)
       });
     });
 

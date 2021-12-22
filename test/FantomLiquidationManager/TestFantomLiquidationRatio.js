@@ -9,7 +9,7 @@ const {
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 
-const { weiToEther, etherToWei } = require('../utils/index');
+const { etherToWei, amount18 } = require('../utils/index');
 
 const FantomLiquidationManager = artifacts.require(
   'MockFantomLiquidationManager'
@@ -212,21 +212,10 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('30000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.3));
     });
 
-    it('should show offering ratio -- 32% (after 1 minute 20 seconds)', async function() {
-      startTime = Number(startTime) + 20;
-      let details = await this.fantomLiquidationManager.getAuctionPricing(
-        new BN('1'),
-        new BN(startTime)
-      );
-
-      const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('32000000');
-    });
-
-    it('should show offering ratio -- 34% (after 2 minutes)', async function() {
+    it('should show offering ratio -- 32.6% (after 1 minute 40 seconds)', async function() {
       startTime = Number(startTime) + 40;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
@@ -234,32 +223,43 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('34000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.326666666666666660));
     });
 
-    it('should show offering ratio -- 47% (after 30 minutes)', async function() {
-      startTime = Number(startTime) + 1680;
+    it('should show offering ratio -- 34% (after 2 minutes)', async function() {
+      startTime = Number(startTime) + 20;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
         new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('47068800');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.34));
+    });
+
+    it('should show offering ratio -- 51% (after 40 minutes)', async function() {
+      startTime = Number(startTime) + 2280;
+      let details = await this.fantomLiquidationManager.getAuctionPricing(
+        new BN('1'),
+        new BN(startTime)
+      );
+
+      const { 0: offeringRatio } = details;
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.510344827586208000));
     });
 
     it('should show offering ratio -- 60% (after 1 hour)', async function() {
-      startTime = Number(startTime) + 1800;
+      startTime = Number(startTime) + 1200;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
         new BN(startTime)
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('60000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(0.6));
     });
 
-    it('should show offering ratio -- 84% (after 3 days)', async function() {
+    it('should show offering ratio -- 83.9% (after 3 days)', async function() {
       startTime = Number(startTime) + 255600;
       let details = await this.fantomLiquidationManager.getAuctionPricing(
         new BN('1'),
@@ -267,7 +267,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('84275200');
+      expect(offeringRatio.toString()).to.be.equal(amount18('0.838655462185004800'));
     });
 
     it('should show offering ratio -- 100% (after 5 days)', async function() {
@@ -278,7 +278,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('100000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(1));
     });
 
     it('should show offering ratio -- 100% (after 5 and 1 hour)', async function() {
@@ -289,7 +289,7 @@ contract('FantomLiquidationManager', function([
       );
 
       const { 0: offeringRatio } = details;
-      expect(offeringRatio.toString()).to.be.equal('100000000');
+      expect(offeringRatio.toString()).to.be.equal(amount18(1));
     });
   });
 });

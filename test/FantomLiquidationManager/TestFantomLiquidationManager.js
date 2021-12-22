@@ -8,7 +8,7 @@ const {
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 
-const { weiToEther, etherToWei } = require('../utils/index');
+const { weiToEther, etherToWei, amount18 } = require('../utils/index');
 
 const FantomLiquidationManager = artifacts.require(
   'MockFantomLiquidationManager'
@@ -32,7 +32,7 @@ let totalSupply;
 let provider;
 let startTime;
 
-const PRICE_PRECISION = 10 ** 8;
+const PRICE_PRECISION = 1e18;
 
 contract(
   'FantomLiquidationManager',
@@ -343,7 +343,7 @@ contract(
         offeredRatio = offeringRatio;
         debtValue = 3366329999999999999998 / 1e18;
 
-        expect(offeringRatio.toString()).to.equal('30000000');
+        expect(offeringRatio.toString()).to.equal(amount18(0.3));
         expect(auctionStartTime.toString()).to.equal(startTime.toString());
       });
 
@@ -358,16 +358,16 @@ contract(
           { from: firstBidder }
         );
 
-        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, new BN('100000000'), {
+        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, etherToWei(1), {
           from: firstBidder,
           value: etherToWei(0.05)
         });
   
         expectEvent(_bidPlacedEvent, 'BidPlaced', {
           nonce: new BN('1'),
-          percentage: new BN('100000000'),
+          percentage: etherToWei(1),
           bidder: firstBidder,
-          offeredRatio: new BN('30000000')
+          offeredRatio: etherToWei(0.3)
         });
       });
 
@@ -386,15 +386,14 @@ contract(
       it('the bidder should get 30% of the total wFTM collateral', async function () {
         let balance = await this.mockToken.balanceOf(firstBidder);
 
-        let offeredCollateral = (offeredRatio * PRICE_PRECISION * 9999) / 1e16;
+        let offeredCollateral = ((offeredRatio / PRICE_PRECISION) * 9999);
         expect(weiToEther(balance)).to.equal(offeredCollateral.toString());
       });
 
       it('the collateral pool should get the remaining 70% of the wFTM collateral back', async function () {
         let balance = await this.collateralPool.balanceOf(borrower, this.mockToken.address);
 
-        let remainingCollateral =
-          9999 - (offeredRatio * PRICE_PRECISION * 9999) / 1e16;
+        let remainingCollateral = 9999 - ((offeredRatio / PRICE_PRECISION) * 9999);
         expect(weiToEther(balance)).to.equal(remainingCollateral.toString());
       });
 

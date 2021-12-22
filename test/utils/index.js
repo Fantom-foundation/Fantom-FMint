@@ -6,4 +6,8 @@ const etherToWei = (n) => {
   return new web3.utils.BN(web3.utils.toWei(n.toString(), 'ether'));
 };
 
-module.exports = { weiToEther, etherToWei };
+const amount18 = (n) => {
+  return web3.utils.toWei(n.toString(), 'ether');
+}
+
+module.exports = { weiToEther, etherToWei, amount18 };
