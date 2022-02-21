@@ -263,10 +263,10 @@ contract(
           new BN(newTime)
         );
 
-        const { 0: offeringRatio } = details;
+        const { 0: offeringRatio, 6: totalDebt } = details;
 
         offeredRatio = offeringRatio;
-        debtValue = 3366329999999999999998 / 1e18;;
+        debtValue = Number(weiToEther(totalDebt)).toFixed(2);
 
         expect(offeringRatio.toString()).to.equal(amount18(0.3));
       });
