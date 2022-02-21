@@ -338,7 +338,7 @@ contract(
           new BN(newTime)
         );
 
-        const { 0: offeringRatio, 3: auctionStartTime, 6: totalDebt } = details;
+        const { 0: offeringRatio, 3: auctionStartTime, 7: totalDebt } = details;
 
         offeredRatio = offeringRatio;
         debtValue = Number(weiToEther(totalDebt)).toFixed(2);

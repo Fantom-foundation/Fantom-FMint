@@ -263,12 +263,13 @@ contract(
           new BN(newTime)
         );
 
-        const { 0: offeringRatio, 6: totalDebt } = details;
+        const { 0: offeringRatio, 5: collateralAmount, 7: totalDebt } = details;
 
         offeredRatio = offeringRatio;
         debtValue = Number(weiToEther(totalDebt)).toFixed(2);
 
         expect(offeringRatio.toString()).to.equal(amount18(0.3));
+        expect(weiToEther(collateralAmount)).to.equal('9999');
       });
 
       it('increase time by 1 minute', async function() {
