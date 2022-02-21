@@ -126,7 +126,8 @@ contract FantomLiquidationManager is
       uint256,
       uint256,
       address[] memory,
-      address[] memory
+      address[] memory,
+      uint256[] memory
     )
   {
     require(
@@ -144,7 +145,8 @@ contract FantomLiquidationManager is
       getAuction[_nonce].remainingPercentage,
       _auction.startTime,
       _auction.collateralList,
-      _auction.debtList
+      _auction.debtList,
+      _auction.debtValue
     );
   }
 
