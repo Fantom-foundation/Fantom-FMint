@@ -126,6 +126,7 @@ contract FantomLiquidationManager is
       uint256,
       uint256,
       address[] memory,
+      uint256[] memory,
       address[] memory,
       uint256[] memory
     )
@@ -142,9 +143,10 @@ contract FantomLiquidationManager is
     return (
       offeringRatio,
       initiatorBonus,
-      getAuction[_nonce].remainingPercentage,
+      _auction.remainingPercentage,
       _auction.startTime,
       _auction.collateralList,
+      _auction.collateralValue,
       _auction.debtList,
       _auction.debtValue
     );
