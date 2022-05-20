@@ -71,12 +71,12 @@ contract FantomLiquidationManager is
   }
 
   // collateralIsEligible checks if the account is eligible to liquidate.
-  function collateralIsEligible(address _account) public view returns (bool) {
+  function collateralIsEligible(address _account, address _token) public view returns (bool) {
     return
       FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT))
         .checkCollateralCanDecrease(
           _account,
-          getCollateralPool().getToken(0),
+          _token,
           0
         );
   }
@@ -84,11 +84,6 @@ contract FantomLiquidationManager is
   function liquidate(address _targetAddress) external nonReentrant {
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
     IFantomDeFiTokenStorage debtPool = getDebtPool();
-
-    require(
-      !collateralIsEligible(_targetAddress),
-      'Collateral is not eligible for liquidation'
-    );
 
     require(
       collateralPool.totalOf(_targetAddress) > 0,
@@ -102,6 +97,21 @@ contract FantomLiquidationManager is
     address tokenAddress;
     uint256 tokenBalance;
 
+    tokenCount = collateralPool.tokensCount();
+
+    for (index = 0; index < tokenCount; index++) {
+      tokenAddress = collateralPool.getToken(index);
+      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)) {
+        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+        if (tokenBalance > 0) {
+          require(
+            !collateralIsEligible(_targetAddress, tokenAddress),
+            'Collateral is not eligible for liquidation'
+          );
+        }
+      }
+    }
+
     tokenCount = debtPool.tokensCount();
 
     for (index = 0; index < tokenCount; index++) {
@@ -114,17 +124,13 @@ contract FantomLiquidationManager is
       }
     }
 
-    tokenCount = collateralPool.tokensCount();
-
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
-      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)) {
-        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
-        if (tokenBalance > 0) {
-          collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
-          FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
-          emit Seized(_targetAddress, msg.sender, tokenAddress, tokenBalance);
-        }
+      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+      if (tokenBalance > 0) {
+        collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
+        FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
+        emit Seized(_targetAddress, msg.sender, tokenAddress, tokenBalance);
       }
     }
   }
