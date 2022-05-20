@@ -37,9 +37,6 @@ contract FantomLiquidationManager is
 
   address public fantomMintContract;
 
-  uint256 constant PRECISION = 1e18;
-  uint256 constant STABILITY_RATIO = 101;
-
   // initialize initializes the contract properly before the first use.
   function initialize(address owner, address _addressProvider)
     public
