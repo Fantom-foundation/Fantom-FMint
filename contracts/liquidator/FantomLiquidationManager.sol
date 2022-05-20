@@ -124,6 +124,8 @@ contract FantomLiquidationManager is
       }
     }
 
+    tokenCount = collateralPool.tokensCount();
+
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
       tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
