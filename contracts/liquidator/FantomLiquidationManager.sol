@@ -13,6 +13,10 @@ import '../FantomMint.sol';
 import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
+interface ISFCToFMint {
+    function removeStake(address, uint256) external;
+}
+
 // FantomLiquidationManager implements the liquidation model
 // with the ability to fine tune settings by the contract owner.
 contract FantomLiquidationManager is
@@ -34,11 +38,12 @@ contract FantomLiquidationManager is
 
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
+  address public sfcToFMint;
 
   address public fantomMintContract;
 
   // initialize initializes the contract properly before the first use.
-  function initialize(address owner, address _addressProvider)
+  function initialize(address owner, address _addressProvider, address _sfcToFMint)
     public
     initializer
   {
@@ -47,6 +52,8 @@ contract FantomLiquidationManager is
 
     // remember the address provider for the other protocol contracts connection
     addressProvider = IFantomMintAddressProvider(_addressProvider);
+    sfcToFMint = _sfcToFMint;
+
   }
 
   function updateAddressProvider(address _addressProvider) external onlyOwner {
@@ -118,6 +125,8 @@ contract FantomLiquidationManager is
       tokenAddress = debtPool.getToken(index);
       tokenBalance = debtPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
+        require(tokenBalance <= ERC20(tokenAddress).allowance(msg.sender, address(this)), 'Low allowance of debt token.');
+
         ERC20Burnable(tokenAddress).burnFrom(msg.sender, tokenBalance);
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
         emit Repaid(_targetAddress, msg.sender, tokenAddress, tokenBalance);
@@ -131,6 +140,9 @@ contract FantomLiquidationManager is
       tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
         collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
+                
+        ISFCToFMint(sfcToFMint).removeStake(_targetAddress, tokenBalance);
+
         FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
         emit Seized(_targetAddress, msg.sender, tokenAddress, tokenBalance);
       }

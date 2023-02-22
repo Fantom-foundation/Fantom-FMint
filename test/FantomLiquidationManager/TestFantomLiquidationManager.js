@@ -25,24 +25,14 @@ const FantomMintRewardDistribution = artifacts.require(
 const FantomFUSD = artifacts.require('FantomFUSD');
 const MockToken = artifacts.require('MockToken');
 const MockPriceOracleProxy = artifacts.require('MockPriceOracleProxy');
-
-let debtValue;
-let offeredRatio;
-let totalSupply;
-let provider;
-let startTime;
-
-const PRICE_PRECISION = 1e18;
+var amountToMint;
 
 contract(
   'FantomLiquidationManager',
   function ([
     owner,
-    admin,
     borrower,
-    firstBidder,
-    secondBidder,
-    initiator
+    liquidator
   ]) {
     before(async function () {
       provider = ethers.provider;
@@ -185,12 +175,8 @@ contract(
         { from: owner }
       );
 
-      await this.fantomLiquidationManager.updateInitiatorBonus(
-        etherToWei(0.05)
-      );
-
-      // mint firstBidder enough fUSD to bid for liquidated collateral
-      await this.fantomFUSD.mint(firstBidder, etherToWei(10000), {
+      // mint liquidator enough fUSD to bid for liquidated collateral
+      await this.fantomFUSD.mint(liquidator, etherToWei(10000), {
         from: owner
       });
     });
@@ -256,18 +242,7 @@ contract(
           this.fantomFUSD.address,
           30000
         );
-
-        // let debtOfAccount = await this.debtPool.totalOf(borrower);
-        // let collateralOfAccount = await this.collateralPool.totalOf(borrower);
-
-        // console.log('maxToMint in ether: ', weiToEther(maxToMint) * 1);
-        // console.log('current DEBT (debtValueOf): ', weiToEther(debtOfAccount));
-        // console.log(
-        //   'current Collateral (collateralValueOf): ',
-        //   weiToEther(collateralOfAccount)
-        // );
-
-        // maxToMint Calculation ((((9999 - ((0 * 30000) / 10000)) / 30000) - 1) * 10**18) / 10**18
+        amountToMint = maxToMint;
 
         expect(maxToMint).to.be.bignumber.greaterThan('0');
         expect(weiToEther(maxToMint) * 1).to.be.lessThanOrEqual(3333);
@@ -286,7 +261,7 @@ contract(
       });
     });
 
-    describe('Liquidation phase [Price goes down, single bidder bids completely]', function () {
+    describe('Liquidation phase [Price goes down, liquidator gets the collateral]', function () {
       it('should get the new updated wFTM price ($1 -> $0.5)', async function () {
         // assume: the value of wFTM has changed to 0.5 USD !!
         await this.mockPriceOracleProxy.setPrice(
@@ -304,106 +279,48 @@ contract(
       it('should find collateral not eligible anymore', async function () {
        // make sure the collateral isn't eligible any more
         const isEligible =
-          await this.fantomLiquidationManager.collateralIsEligible(borrower);
+          await this.fantomLiquidationManager.collateralIsEligible(borrower, this.mockToken.address);
 
         expect(isEligible).to.be.equal(false);
+
+        let balance = await this.mockToken.balanceOf(liquidator);
       });
 
-      it('should show unused balance (10000) for initiator', async function () {
-        let balance = await provider.getBalance(initiator); // 0
-
-        expect(Number(weiToEther(balance))).to.equal(10000);
-      });
-
-      it('should start liquidation', async function () {
-      startTime = await time.latest();
-      await this.fantomLiquidationManager.setTime(startTime);
-
-        let _auctionStartEvent =
-          await this.fantomLiquidationManager.liquidate(borrower, {
-            from: initiator
-          });
-
-        expectEvent(_auctionStartEvent, 'AuctionStarted', {
-          0: new BN('1'),
-          1: borrower
-        });
-      });
-
-      it('should get correct auction details', async function () {
-        let newTime = Number(startTime) + 60; //passing a timestamp with 60 additional seconds
-
-        let details = await this.fantomLiquidationManager.getAuctionPricing(
-          new BN('1'),
-          new BN(newTime)
-        );
-
-        const { 0: offeringRatio, 3: auctionStartTime } = details;
-
-        offeredRatio = offeringRatio;
-        debtValue = 3366329999999999999998 / 1e18;
-
-        expect(offeringRatio.toString()).to.equal(amount18(0.3));
-        expect(auctionStartTime.toString()).to.equal(startTime.toString());
-      });
-
-      it('increase time by 1 minute', async function() {
-        await this.fantomLiquidationManager.increaseTime(60);
-      })
-
-      it('should allow a bidder to bid', async function () {
+      it('should start liquidation and emit Repaid and Seized', async function () {
         await this.fantomFUSD.approve(
           this.fantomLiquidationManager.address,
           etherToWei(5000),
-          { from: firstBidder }
+          { from: liquidator }
         );
-
-        let _bidPlacedEvent = await this.fantomLiquidationManager.bid(1, etherToWei(1), {
-          from: firstBidder,
-          value: etherToWei(0.05)
-        });
-  
-        expectEvent(_bidPlacedEvent, 'BidPlaced', {
-          nonce: new BN('1'),
-          percentage: etherToWei(1),
-          bidder: firstBidder,
-          offeredRatio: etherToWei(0.3)
-        });
+          var result = await this.fantomLiquidationManager.liquidate(borrower, {from: liquidator});
+          expectEvent(result, 'Repaid', {
+              target: borrower,
+              liquidator: liquidator,
+              token: this.fantomFUSD.address,
+              amount: amountToMint
+            });
+            expectEvent(result, 'Seized', {
+              target: borrower,
+              liquidator: liquidator,
+              token: this.mockToken.address,
+              amount: etherToWei('9999')
+            });
       });
 
-      it('the initiator should get initiatorBonus', async function () {
-        let balance = await provider.getBalance(initiator); 
-        expect(Number(weiToEther(balance))).to.be.greaterThanOrEqual(10000);
+      it('the liquidator should have (10000 - 3333) 6667 fUSD remaining', async function () {
+        let currentBalance = await this.fantomFUSD.balanceOf(liquidator);
+
+        expect(weiToEther(currentBalance) * 1).to.lessThan(10000);
       });
 
-      it('the bidder should have (10000 - 3366.33) 6633.67 fUSD remaining', async function () {
-        let remainingBalance = 10000 - debtValue;
-        let currentBalance = await this.fantomFUSD.balanceOf(firstBidder);
-
-        expect(weiToEther(currentBalance) * 1).to.equal(remainingBalance);
+      it('the liquidator should get the complete wFTM collateral (from the liquidation)', async function () {
+        let balance = await this.mockToken.balanceOf(liquidator);
+        expect(weiToEther(balance) * 1).to.equal(9999);
       });
 
-      it('the bidder should get 30% of the total wFTM collateral', async function () {
-        let balance = await this.mockToken.balanceOf(firstBidder);
-
-        let offeredCollateral = ((offeredRatio / PRICE_PRECISION) * 9999);
-        expect(weiToEther(balance)).to.equal(offeredCollateral.toString());
-      });
-
-      it('the collateral pool should get the remaining 70% of the wFTM collateral back', async function () {
+      it('the collateral pool should have 0 balance remaining', async function () {
         let balance = await this.collateralPool.balanceOf(borrower, this.mockToken.address);
-
-        let remainingCollateral = 9999 - ((offeredRatio / PRICE_PRECISION) * 9999);
-        expect(weiToEther(balance)).to.equal(remainingCollateral.toString());
-      });
-
-      it('should show the new total supply (after burning tokens)', async function () { 
-        let burntAmount = await this.fantomLiquidationManager.getBurntAmount(this.fantomFUSD.address);
-        let newTotalSupply = weiToEther(await this.fantomFUSD.totalSupply());
-
-        expect(Number(newTotalSupply)).to.equal(
-          totalSupply - weiToEther(burntAmount)
-        );
+        expect(weiToEther(balance) * 1).to.equal(0);
       });
     });
   }
