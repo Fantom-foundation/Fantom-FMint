@@ -14,8 +14,6 @@ import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
 interface ISFC {
-    function getValidatorID(address) external returns (uint256);
-
     function liquidateSFTM(
         address delegator,
         uint256 toValidatorID,
@@ -24,9 +22,9 @@ interface ISFC {
 }
 
 interface IStakeTokenizer {
-    function outstandingSFTM(address, uint256) external returns (uint256);
-
-    function sFTMTokenAddress() external returns (address);
+  function outstandingSFTM(address, uint256) external returns (uint256);
+  
+  function sFTMTokenAddress() external returns (address);
 }
 
 
@@ -107,18 +105,18 @@ contract FantomLiquidationManager is
   }
 
   function _handleSFTM(address _targetAddress, uint256 tokenBalance, uint256 validatorID) internal {
-        ERC20(stakeTokenizer.sFTMTokenAddress()).approve(
-            address(stakeTokenizer),
-            tokenBalance
-        );
-    
-        sfc.liquidateSFTM(_targetAddress, validatorID, tokenBalance);
+    ERC20(stakeTokenizer.sFTMTokenAddress()).approve(
+        address(stakeTokenizer),
+        tokenBalance
+    );
 
-        (bool sent,) = msg.sender.call.value(tokenBalance)("");
-        require(sent, "Failed to send FTM");
+    sfc.liquidateSFTM(_targetAddress, validatorID, tokenBalance);
+
+    (bool sent,) = msg.sender.call.value(tokenBalance)("");
+    require(sent, "Failed to send FTM");
   }
 
-  function liquidate(address _targetAddress) external nonReentrant {
+  function liquidate(address _targetAddress, uint256[] calldata validatorIDs) external nonReentrant {
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
     IFantomDeFiTokenStorage debtPool = getDebtPool();
 
@@ -130,6 +128,7 @@ contract FantomLiquidationManager is
     addressProvider.getRewardDistribution().rewardUpdate(_targetAddress);
 
     uint256 index;
+    uint subIndex;
     uint256 tokenCount;
     address tokenAddress;
     uint256 tokenBalance;
@@ -172,16 +171,19 @@ contract FantomLiquidationManager is
       if (tokenBalance > 0) {
         collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
 
-        uint256 validatorID = sfc.getValidatorID(_targetAddress);
-        uint256 stakedsFTM = stakeTokenizer.outstandingSFTM(
-            _targetAddress,
-            validatorID
-        );
+        if (tokenAddress == stakeTokenizer.sFTMTokenAddress()) {
+          for (subIndex = 0; subIndex < validatorIDs.length; subIndex++) {
+            uint256 stakedsFTM = stakeTokenizer.outstandingSFTM(
+                _targetAddress,
+                validatorIDs[subIndex]
+            );
 
-        if (stakedsFTM > 0) {
-          FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), tokenBalance);
-          
-          _handleSFTM(_targetAddress, tokenBalance, validatorID);
+            if (stakedsFTM > 0) {
+              FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), stakedsFTM);
+            
+              _handleSFTM(_targetAddress, stakedsFTM, validatorIDs[subIndex]);
+            }
+          }
         } else {
           FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
         }
