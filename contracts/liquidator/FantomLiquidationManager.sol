@@ -13,6 +13,24 @@ import '../FantomMint.sol';
 import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
+
+interface ISFC {
+    function getValidatorID(address) external returns (uint256);
+
+    function liquidateSFTM(
+        address delegator,
+        uint256 toValidatorID,
+        uint256 amount
+    ) external;
+}
+
+interface IStakeTokenizer {
+  function outstandingSFTM(address, uint256) external returns (uint256);
+  
+  function sFTMTokenAddress() external returns (address);
+}
+
+
 // FantomLiquidationManager implements the liquidation model
 // with the ability to fine tune settings by the contract owner.
 contract FantomLiquidationManager is
@@ -34,11 +52,13 @@ contract FantomLiquidationManager is
 
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
+  ISFC public sfc;
+  IStakeTokenizer public stakeTokenizer;
 
   address public fantomMintContract;
 
   // initialize initializes the contract properly before the first use.
-  function initialize(address owner, address _addressProvider)
+  function initialize(address owner, address _addressProvider, address _sfc, address _stakeTokenizer)
     public
     initializer
   {
@@ -47,6 +67,8 @@ contract FantomLiquidationManager is
 
     // remember the address provider for the other protocol contracts connection
     addressProvider = IFantomMintAddressProvider(_addressProvider);
+    sfc = ISFC(_sfc);
+    stakeTokenizer = IStakeTokenizer(_stakeTokenizer);
   }
 
   function updateAddressProvider(address _addressProvider) external onlyOwner {
@@ -81,7 +103,23 @@ contract FantomLiquidationManager is
         );
   }
 
-  function liquidate(address _targetAddress) external nonReentrant {
+  function() payable external {
+    require(msg.sender == address(sfc), "transfers not allowed");
+  }
+
+  function _handleSFTM(address _targetAddress, uint256 tokenBalance, uint256 validatorID) internal {
+    ERC20(stakeTokenizer.sFTMTokenAddress()).approve(
+        address(stakeTokenizer),
+        tokenBalance
+    );
+
+    sfc.liquidateSFTM(_targetAddress, validatorID, tokenBalance);
+
+    (bool sent,) = msg.sender.call.value(tokenBalance)("");
+    require(sent, "Failed to send FTM");
+  }
+
+  function liquidate(address _targetAddress, uint256[] calldata validatorIDs) external nonReentrant {
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
     IFantomDeFiTokenStorage debtPool = getDebtPool();
 
@@ -93,22 +131,23 @@ contract FantomLiquidationManager is
     addressProvider.getRewardDistribution().rewardUpdate(_targetAddress);
 
     uint256 index;
+    uint subIndex;
     uint256 tokenCount;
     address tokenAddress;
     uint256 tokenBalance;
+    uint256 remainingBalance;
 
     tokenCount = collateralPool.tokensCount();
 
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
-      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)) {
-        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
-        if (tokenBalance > 0) {
-          require(
-            !collateralIsEligible(_targetAddress, tokenAddress),
-            'Collateral is not eligible for liquidation'
-          );
-        }
+
+      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+      if (tokenBalance > 0) {
+        require(
+          !collateralIsEligible(_targetAddress, tokenAddress),
+          'Collateral is not eligible for liquidation'
+        );
       }
     }
 
@@ -118,8 +157,11 @@ contract FantomLiquidationManager is
       tokenAddress = debtPool.getToken(index);
       tokenBalance = debtPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
+        require(tokenBalance <= ERC20(tokenAddress).allowance(msg.sender, address(this)), 'Low allowance of debt token.');
+
         ERC20Burnable(tokenAddress).burnFrom(msg.sender, tokenBalance);
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
+
         emit Repaid(_targetAddress, msg.sender, tokenAddress, tokenBalance);
       }
     }
@@ -131,7 +173,33 @@ contract FantomLiquidationManager is
       tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
         collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
-        FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
+
+        remainingBalance = tokenBalance; 
+
+        if (tokenAddress == stakeTokenizer.sFTMTokenAddress()) {
+          for (subIndex = 0; subIndex < validatorIDs.length; subIndex++) {
+            uint256 stakedsFTM = stakeTokenizer.outstandingSFTM(
+                _targetAddress,
+                validatorIDs[subIndex]
+            );
+
+            if (stakedsFTM > 0 && remainingBalance != 0) {
+                if (stakedsFTM <= remainingBalance) {
+                    FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), stakedsFTM);
+                    _handleSFTM(_targetAddress, stakedsFTM, validatorIDs[subIndex]);
+                    remainingBalance = remainingBalance - stakedsFTM; 
+                } 
+                else {
+                    FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), remainingBalance);
+                    _handleSFTM(_targetAddress, remainingBalance, validatorIDs[subIndex]);
+                    remainingBalance = 0;
+                }
+            }
+          }
+        } else {
+          FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
+        }
+
         emit Seized(_targetAddress, msg.sender, tokenAddress, tokenBalance);
       }
     }
