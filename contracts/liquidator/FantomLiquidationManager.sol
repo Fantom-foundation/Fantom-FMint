@@ -196,6 +196,10 @@ contract FantomLiquidationManager is
                 }
             }
           }
+
+          if (remainingBalance != 0) {
+            revert();
+          }
         } else {
           FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
         }
