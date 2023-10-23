@@ -42,8 +42,8 @@ contract FantomDeFiTokenStorage is Initializable, IFantomDeFiTokenStorage
     // onlyMinterOrLiquidationManager modifier controls access to sensitive functions
     // to allow only calls from fMint Minter or fLiquidationManager contract.
     modifier onlyMinterOrLiquidationManager() {
-        require(msg.sender == address(addressProvider.getFantomMint()) || msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted"); 
-        _;       
+        require(msg.sender == address(addressProvider.getFantomMint()) || msg.sender == address(addressProvider.getFantomLiquidationManager()), "token storage access restricted");
+        _;
     }
 
     // initialize initializes the instance of the module.

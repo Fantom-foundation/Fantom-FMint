@@ -13,6 +13,24 @@ import '../FantomMint.sol';
 import '../utility/FantomMintTokenRegistry.sol';
 import '../modules/FantomMintBalanceGuard.sol';
 
+
+interface ISFC {
+    function getValidatorID(address) external returns (uint256);
+
+    function liquidateSFTM(
+        address delegator,
+        uint256 toValidatorID,
+        uint256 amount
+    ) external;
+}
+
+interface IStakeTokenizer {
+  function outstandingSFTM(address, uint256) external returns (uint256);
+  
+  function sFTMTokenAddress() external returns (address);
+}
+
+
 // FantomLiquidationManager implements the liquidation model
 // with the ability to fine tune settings by the contract owner.
 contract FantomLiquidationManager is
@@ -26,45 +44,21 @@ contract FantomLiquidationManager is
   using Address for address;
   using SafeERC20 for ERC20;
 
-  event AuctionStarted(uint256 indexed nonce, address indexed user);
-  event BidPlaced(uint256 indexed nonce, uint256 percentage, address indexed bidder, uint256 offeredRatio);
-
-  struct AuctionInformation {
-    address target;
-    address payable initiator;
-    uint256 startTime;
-    uint256 remainingPercentage;
-    address[] collateralList;
-    address[] debtList;
-    uint256[] collateralValue;
-    uint256[] debtValue;
-  }
+  event Repaid(address indexed target, address indexed liquidator, address indexed token, uint256 amount);
+  event Seized(address indexed target, address indexed liquidator, address indexed token, uint256 amount);
 
   bytes32 private constant MOD_FANTOM_MINT = 'fantom_mint';
-  bytes32 private constant MOD_COLLATERAL_POOL = 'collateral_pool';
-  bytes32 private constant MOD_DEBT_POOL = 'debt_pool';
-  bytes32 private constant MOD_PRICE_ORACLE = 'price_oracle_proxy';
-  bytes32 private constant MOD_REWARD_DISTRIBUTION = 'reward_distribution';
   bytes32 private constant MOD_TOKEN_REGISTRY = 'token_registry';
-  bytes32 private constant MOD_ERC20_REWARD_TOKEN = 'erc20_reward_token';
-
-  mapping(uint256 => AuctionInformation) public getAuction;
-  mapping(address => uint256) public getBurntAmount;
 
   // addressProvider represents the connection to other FMint related contracts.
   IFantomMintAddressProvider public addressProvider;
+  ISFC public sfc;
+  IStakeTokenizer public stakeTokenizer;
 
   address public fantomMintContract;
 
-  uint256 internal currentNonce;
-
-  uint256 public initiatorBonus;
-
-  uint256 constant PRECISION = 1e18;
-  uint256 constant STABILITY_RATIO = 101;
-
   // initialize initializes the contract properly before the first use.
-  function initialize(address owner, address _addressProvider)
+  function initialize(address owner, address _addressProvider, address _sfc, address _stakeTokenizer)
     public
     initializer
   {
@@ -73,7 +67,8 @@ contract FantomLiquidationManager is
 
     // remember the address provider for the other protocol contracts connection
     addressProvider = IFantomMintAddressProvider(_addressProvider);
-    currentNonce = 0;
+    sfc = ISFC(_sfc);
+    stakeTokenizer = IStakeTokenizer(_stakeTokenizer);
   }
 
   function updateAddressProvider(address _addressProvider) external onlyOwner {
@@ -87,15 +82,6 @@ contract FantomLiquidationManager is
     fantomMintContract = _fantomMintContract;
   }
 
-  function updateInitiatorBonus(uint256 _initatorBonus) external onlyOwner {
-    initiatorBonus = _initatorBonus;
-  }
-
-  modifier onlyNotContract() {
-    require(_msgSender() == tx.origin);
-    _;
-  }
-
   // getCollateralPool returns the address of collateral pool.
   function getCollateralPool() public view returns (IFantomDeFiTokenStorage) {
     return addressProvider.getCollateralPool();
@@ -106,169 +92,36 @@ contract FantomLiquidationManager is
     return addressProvider.getDebtPool();
   }
 
-  // rewardIsEligible checks if the account is eligible to receive any reward.
-  function collateralIsEligible(address _account) public view returns (bool) {
+  // collateralIsEligible checks if the account is eligible to liquidate.
+  function collateralIsEligible(address _account, address _token) public view returns (bool) {
     return
       FantomMint(addressProvider.getAddress(MOD_FANTOM_MINT))
         .checkCollateralCanDecrease(
           _account,
-          getCollateralPool().getToken(0),
+          _token,
           0
         );
   }
 
-    function getAuctionPricing(uint256 _nonce, uint256 currentTime)
-    external
-    view
-    returns (
-      uint256,
-      uint256,
-      uint256,
-      uint256,
-      address[] memory,
-      address[] memory
-    )
-  {
-    require(
-      getAuction[_nonce].remainingPercentage > 0,
-      'Auction not found'
-    );
-    AuctionInformation storage _auction = getAuction[_nonce];
-    uint256 timeDiff = currentTime.sub(_auction.startTime);
-
-    uint256 offeringRatio = _getRatio(timeDiff);
-    
-    return (
-      offeringRatio,
-      initiatorBonus,
-      getAuction[_nonce].remainingPercentage,
-      _auction.startTime,
-      _auction.collateralList,
-      _auction.debtList
-    );
+  function() payable external {
+    require(msg.sender == address(sfc), "transfers not allowed");
   }
 
-  function bid(uint256 _nonce, uint256 _percentage)
-    public
-    payable
-    nonReentrant
-  {
-    require(msg.value == initiatorBonus, 'Insufficient funds to bid.');
-
-    require(
-      getAuction[_nonce].remainingPercentage > 0,
-      'Auction not found'
+  function _handleSFTM(address _targetAddress, uint256 tokenBalance, uint256 validatorID) internal {
+    ERC20(stakeTokenizer.sFTMTokenAddress()).approve(
+        address(stakeTokenizer),
+        tokenBalance
     );
 
-    require(_percentage > 0, 'Percent must be greater than 0');
+    sfc.liquidateSFTM(_targetAddress, validatorID, tokenBalance);
 
-    AuctionInformation storage _auction = getAuction[_nonce];
-    if (_percentage > _auction.remainingPercentage) {
-      _percentage = _auction.remainingPercentage;
-    }
-
-    if (_auction.remainingPercentage == PRECISION) {
-      _auction.initiator.call.value(msg.value)('');
-    } else {
-      msg.sender.call.value(msg.value)('');
-    }
-
-    uint256 actualPercentage = _percentage.mul(PRECISION).div(
-      _auction.remainingPercentage
-    );
-
-    uint256 timeDiff = _now().sub(_auction.startTime);
-    uint256 offeringRatio = _getRatio(timeDiff);
-
-    uint256 index;
-    address debtTokenAddress;
-
-    IFantomDeFiTokenStorage collateralPool = getCollateralPool();
-
-    for (index = 0; index < _auction.debtList.length; index++) {
-      debtTokenAddress = _auction.debtList[index];
-
-      uint256 debtAmount = _auction
-        .debtValue[index]
-        .mul(actualPercentage)
-        .div(PRECISION);
-
-      if (actualPercentage < PRECISION){
-        debtAmount = debtAmount.add(1);
-      }
-
-      require(
-        debtAmount <=
-          ERC20(debtTokenAddress).allowance(msg.sender, address(this)),
-        'Low allowance of debt token.'
-      );
-
-      getBurntAmount[debtTokenAddress] = getBurntAmount[debtTokenAddress].add(debtAmount);
-
-      ERC20Burnable(debtTokenAddress).burnFrom(msg.sender, debtAmount);
-      _auction.debtValue[index] = _auction
-        .debtValue[index]
-        .sub(debtAmount);
-    }
-
-    uint256 collateralPercent = actualPercentage.mul(offeringRatio).div(
-      PRECISION
-    );
-
-    for (index = 0; index < _auction.collateralList.length; index++) {
-      uint256 collatAmount = _auction
-        .collateralValue[index]
-        .mul(collateralPercent)
-        .div(PRECISION);
-      
-      uint256 processedCollatAmount = _auction
-        .collateralValue[index]
-        .mul(actualPercentage)
-        .div(PRECISION);
-
-      FantomMint(fantomMintContract).settleLiquidationBid(
-        _auction.collateralList[index],
-        msg.sender,
-        collatAmount
-      );
-
-      collateralPool.add(_auction.target, _auction.collateralList[index], processedCollatAmount.sub(collatAmount));
-
-      _auction.collateralValue[index] = _auction
-        .collateralValue[index]
-        .sub(processedCollatAmount);
-    }
-
-    _auction.remainingPercentage = _auction.remainingPercentage.sub(
-      _percentage
-    );
-
-    emit BidPlaced(_nonce, _percentage, msg.sender, offeringRatio);
-
-    if (actualPercentage == PRECISION) {
-      // Auction ended
-      for (index = 0; index < _auction.collateralList.length; index++) {
-        uint256 collatAmount = _auction.collateralValue[index];
-        collateralPool.add(_auction.target, _auction.collateralList[index], collatAmount);
-        _auction.collateralValue[index] = 0;
-      }
-    }
+    (bool sent,) = msg.sender.call.value(tokenBalance)("");
+    require(sent, "Failed to send FTM");
   }
 
-  function liquidate(address _targetAddress)
-    external
-    nonReentrant
-    onlyNotContract
-  {
-    // get the collateral pool
+  function liquidate(address _targetAddress, uint256[] calldata validatorIDs) external nonReentrant {
     IFantomDeFiTokenStorage collateralPool = getCollateralPool();
-    // get the debt pool
     IFantomDeFiTokenStorage debtPool = getDebtPool();
-
-    require(
-      !collateralIsEligible(_targetAddress),
-      'Collateral is not eligible for liquidation'
-    );
 
     require(
       collateralPool.totalOf(_targetAddress) > 0,
@@ -277,83 +130,82 @@ contract FantomLiquidationManager is
 
     addressProvider.getRewardDistribution().rewardUpdate(_targetAddress);
 
-    AuctionInformation memory _tempAuction;
-    _tempAuction.target = _targetAddress;
-    _tempAuction.initiator = msg.sender;
-    _tempAuction.startTime = _now();
-
-    currentNonce += 1;
-    getAuction[currentNonce] = _tempAuction;
-
-    AuctionInformation storage _auction = getAuction[currentNonce];
-
     uint256 index;
+    uint subIndex;
     uint256 tokenCount;
     address tokenAddress;
     uint256 tokenBalance;
-    
+    uint256 remainingBalance;
+
     tokenCount = collateralPool.tokensCount();
 
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = collateralPool.getToken(index);
-      if(FantomMintTokenRegistry(addressProvider.getAddress(MOD_TOKEN_REGISTRY)).canTrade(tokenAddress)){
-        tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
-        if (tokenBalance > 0) {
-          collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
-          _auction.collateralList.push(tokenAddress);
-          _auction.collateralValue.push(tokenBalance);
-        }
+
+      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+      if (tokenBalance > 0) {
+        require(
+          !collateralIsEligible(_targetAddress, tokenAddress),
+          'Collateral is not eligible for liquidation'
+        );
       }
     }
 
-    require(_auction.collateralList.length > 0, 'no tradable collateral found');
-
     tokenCount = debtPool.tokensCount();
-    
+
     for (index = 0; index < tokenCount; index++) {
       tokenAddress = debtPool.getToken(index);
       tokenBalance = debtPool.balanceOf(_targetAddress, tokenAddress);
       if (tokenBalance > 0) {
+        require(tokenBalance <= ERC20(tokenAddress).allowance(msg.sender, address(this)), 'Low allowance of debt token.');
+
+        ERC20Burnable(tokenAddress).burnFrom(msg.sender, tokenBalance);
         debtPool.sub(_targetAddress, tokenAddress, tokenBalance);
-        _auction.debtList.push(tokenAddress);
-        _auction.debtValue.push(tokenBalance.mul(STABILITY_RATIO).div(100));
+
+        emit Repaid(_targetAddress, msg.sender, tokenAddress, tokenBalance);
       }
     }
 
-    _auction.remainingPercentage = PRECISION;
+    tokenCount = collateralPool.tokensCount();
 
-    emit AuctionStarted(currentNonce, _targetAddress);
-  }
+    for (index = 0; index < tokenCount; index++) {
+      tokenAddress = collateralPool.getToken(index);
+      tokenBalance = collateralPool.balanceOf(_targetAddress, tokenAddress);
+      if (tokenBalance > 0) {
+        collateralPool.sub(_targetAddress, tokenAddress, tokenBalance);
 
-  function _getRatio(uint256 time) internal view returns (uint256) {
-     uint256 m;
-     uint256 c;
-     uint256 ratio;
+        remainingBalance = tokenBalance; 
 
-     if (time <= 60) { // up to 1 minute -> 1-30%
-       m = 3389830508474578;
-       c = 96610169491525320;
-     } else if (time <= 120) { // up to 2 minutes -> 30-34%
-       m = 666666666666667;
-       c = 259999999999999960;
-     } else if (time <= 3600) { // up to 1 hour -> 34-60%
-       m = 74712643678160;
-       c = 331034482758624000;
-     } else if (time <= 432000) { // up to 5 days -> 60-100%
-       m = 933706816059;
-       c = 596638655462512000;
-     } else { // beyond 5 days -> 100%
-       ratio = 1e18;
+        if (tokenAddress == stakeTokenizer.sFTMTokenAddress()) {
+          for (subIndex = 0; subIndex < validatorIDs.length; subIndex++) {
+            uint256 stakedsFTM = stakeTokenizer.outstandingSFTM(
+                _targetAddress,
+                validatorIDs[subIndex]
+            );
 
-       return ratio;
-     }
+            if (stakedsFTM > 0 && remainingBalance != 0) {
+                if (stakedsFTM <= remainingBalance) {
+                    FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), stakedsFTM);
+                    _handleSFTM(_targetAddress, stakedsFTM, validatorIDs[subIndex]);
+                    remainingBalance = remainingBalance - stakedsFTM; 
+                } 
+                else {
+                    FantomMint(fantomMintContract).settleLiquidation(tokenAddress, address(this), remainingBalance);
+                    _handleSFTM(_targetAddress, remainingBalance, validatorIDs[subIndex]);
+                    remainingBalance = 0;
+                }
+            }
+          }
 
-     ratio = m.mul(time).add(c);
+          if (remainingBalance != 0) {
+            revert();
+          }
+        } else {
+          FantomMint(fantomMintContract).settleLiquidation(tokenAddress, msg.sender, tokenBalance);
+        }
 
-     return ratio;
-   }
-
-  function _now() internal view returns (uint256) {
-    return now;
+        emit Seized(_targetAddress, msg.sender, tokenAddress, tokenBalance);
+      }
+    }
   }
 }
